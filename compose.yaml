@@ -1,0 +1,138 @@
+services:
+  app:
+    build:
+      dockerfile: images/nginx
+      args:
+        USER_ID: ${USER_ID}
+        GROUP_ID: ${GROUP_ID}
+    restart: unless-stopped
+    ports:
+      - "80:8000"
+      - "443:8443"
+    volumes: &appvolumes
+      - ~/.composer:/var/www/.composer:cached
+      - ~/.ssh/id_rsa:/var/www/.ssh/id_rsa:cached
+      - ~/.ssh/known_hosts:/var/www/.ssh/known_hosts:cached
+      - appdata:/var/www/html
+      - sockdata:/sock
+      - ssldata:/etc/nginx/certs
+    extra_hosts: &appextrahosts
+      - "host.docker.internal:host-gateway"
+    networks: &appnetworks
+      - nginx-proxy
+    environment:
+      - VIRTUAL_HOST: ${DOMAIN_HOSTS}
+      - VIRTUAL_PORT: 80
+      - LETSENCRYPT_HOST: ${DOMAIN_HOSTS}
+      - LETSENCRYPT_EMAIL: ${DOMAIN_EMAIL}
+    user: ${USER_ID}:${GROUP_ID}
+    env_file: env/nginx.env
+
+  phpfpm:
+    build:
+      dockerfile: images/php/8.3
+      args:
+        USER_ID: ${USER_ID}
+        GROUP_ID: ${GROUP_ID}
+    user: ${USER_ID}:${GROUP_ID}
+    restart: unless-stopped
+    volumes: *appvolumes
+    env_file: env/phpfpm.env env/phpfpm.env
+    extra_hosts: *appextrahosts
+    networks: *appnetworks
+
+  db:
+    image: mariadb:10.6
+    command:
+      --max_allowed_packet=64M
+      --optimizer_use_condition_selectivity=1
+      --optimizer_switch="rowid_filter=off"
+    ports:
+      - "3306:3306"
+    env_file: env/db.env
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks: *appnetworks
+
+  #db:
+  #  image: mysql:8.0
+  #  restart: unless-stopped
+  #  command:
+  #    --max_allowed_packet=64M
+  #    --optimizer_use_condition_selectivity=1
+  #    --optimizer_switch="rowid_filter=off"
+  #  ports:
+  #    - "3306:3306"
+  #  env_file: env/db.env
+  #  volumes:
+  #    - dbdata:/var/lib/mysql
+  #  networks: *appnetworks
+
+  redis:
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks: *appnetworks
+
+  opensearch:
+    build:
+      dockerfile: images/opensearch/2.5
+    restart: unless-stopped
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    env_file: env/opensearch.env
+    environment:
+      - "discovery.type=single-node"
+      - "cluster.routing.allocation.disk.threshold_enabled=false"
+      - "index.blocks.read_only_allow_delete"
+      #- "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      #- "max_map_count=262144"
+    networks: *appnetworks
+
+  #elasticsearch:
+  #  build:
+  #   dockerfile: images/elasticsearch
+  #  restart: unless-stopped
+  #  ports:
+  #    - "9200:9200"
+  #    - "9300:9300"
+  #  env_file: env/elasticsearch.env
+  #  environment:
+  #    - "discovery.type=single-node"
+  #    - "cluster.routing.allocation.disk.threshold_enabled=false"
+  #    - "index.blocks.read_only_allow_delete"
+  #    #- "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+  #    #- "max_map_count=262144"
+  #  networks: *appnetworks
+
+  rabbitmq:
+    build:
+      dockerfile: images/rabitmq/3.11
+    restart: unless-stopped
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    env_file: env/rabbitmq.env
+    networks: *appnetworks
+
+  mailcatcher:
+    image: sj26/mailcatcher
+    restart: unless-stopped
+    ports:
+      - "1080:1080"
+    networks: *appnetworks
+
+volumes:
+  appdata:
+  dbdata:
+  rabbitmqdata:
+  sockdata:
+  ssldata:
+
+networks:
+  nginx-proxy:
+    external: true
