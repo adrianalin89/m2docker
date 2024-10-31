@@ -41,6 +41,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
+      - nginx-proxy
       - {{project_name}}-network
 
   {{project_name}}-redis:
@@ -74,6 +75,7 @@ services:
     volumes:
       - dbdata:/var/lib/mysql
     networks:
+      - nginx-proxy
       - {{project_name}}-network
 
 volumes:
