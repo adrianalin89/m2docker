@@ -131,4 +131,4 @@ RUN python3 -c "import socket as s; sock = s.socket(s.AF_UNIX); sock.bind('/dev/
 USER www-data
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 
-WORKDIR /var/www
+WORKDIR /var/www/src
