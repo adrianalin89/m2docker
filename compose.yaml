@@ -1,6 +1,6 @@
 services:
-  {{project_name}}-nginx:
-    container_name: {{project_name}}-nginx
+  bar-nginx:
+    container_name: bar-nginx
     restart: unless-stopped
     image: nginx:1.27
     volumes:
@@ -9,12 +9,12 @@ services:
     ports:
       - "80"
     depends_on:
-      - {{project_name}}-php
+      - bar-php
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
       - nginx-proxy
-      - {{project_name}}-network
+      - bar-network
     environment:
       - VIRTUAL_HOST=${DOMAIN_HOSTS}
       - SELF_SIGNED_HOST=${DOMAIN_HOSTS}
@@ -22,8 +22,8 @@ services:
       - LETSENCRYPT_HOST=${DOMAIN_HOSTS}
       - LETSENCRYPT_EMAIL=${DOMAIN_EMAIL}
 
-  {{project_name}}-php:
-    container_name: {{project_name}}-php
+  bar-php:
+    container_name: bar-php
     restart: unless-stopped
     user: ${USER_ID}:${GROUP_ID}
     build:
@@ -41,19 +41,19 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
-      - {{project_name}}-network
+      - bar-network
 
-  {{project_name}}-redis:
-    container_name: {{project_name}}-redis
+  bar-redis:
+    container_name: bar-redis
     image: redis:7.2-alpine
     restart: unless-stopped
     ports:
       - "6379"
     networks:
-      - {{project_name}}-network
+      - bar-network
 
-  {{project_name}}-db:
-    container_name: {{project_name}}-db
+  bar-db:
+    container_name: bar-db
     image: mariadb:10.6
     command:
       --max_allowed_packet=64M
@@ -64,7 +64,7 @@ services:
     volumes:
       - dbdata:/var/lib/mysql
     networks:
-      - {{project_name}}-network
+      - bar-network
 
 volumes:
   appdata:
@@ -76,4 +76,4 @@ volumes:
 networks:
   nginx-proxy:
     external: true
-  {{project_name}}-network:
+  bar-network:
