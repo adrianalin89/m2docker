@@ -1,13 +1,25 @@
 FROM php:8.3-fpm-bookworm
 
+USER root
+
 ARG USER_ID
 ARG GROUP_ID
 
-RUN groupadd -g "$GROUP_ID" app \
-  && useradd -g "$GROUP_ID" -u "$USER_ID" -d /var/www -s /bin/bash app
+RUN userdel -f www-data
+RUN if getent group www-data ; then groupdel www-data; fi
+RUN if ! getent group ${GROUP_ID} ; then groupadd -g ${GROUP_ID} www-data ; else groupmod -n www-data $(getent group ${GROUP_ID} | cut -d: -f1); fi
+RUN useradd -l -u ${USER_ID} -g www-data www-data
+RUN chown -R www-data:www-data /var/www
 
-RUN mkdir -p /etc/nginx/html /var/www/html /sock \
-  && chown -R app:app /etc/nginx /var/www /usr/local/etc/php/conf.d /sock
+RUN install -d -m 0755 -o www-data -g www-data /home/www-data
+RUN chown -R www-data:www-data /home/www-data
+
+RUN mkdir /var/log/supervisor
+RUN chown -R www-data:www-data /var/log/supervisor
+RUN touch /var/run/supervisord.pid
+RUN touch /var/run/crond.pid
+RUN chown -R www-data:www-data /var/run
+RUN chown www-data:www-data /var/run/supervisord.pid /var/run/crond.pid
 
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 
@@ -105,10 +117,18 @@ RUN curl -sS https://getcomposer.org/installer | \
 
 COPY conf/spx.ini $PHP_INI_DIR/conf.d/spx.ini
 COPY conf/msmtprc /etc/msmtprc
-COPY conf/php.ini $PHP_INI_DIR
-COPY conf/php-fpm.conf /usr/local/etc/
-COPY conf/www.conf /usr/local/etc/php-fpm.d/
 
-USER app:app
-VOLUME /var/www
-WORKDIR /var/www/html
+RUN apt-get update && apt-get install -y supervisor
+ADD conf/crontab /etc/cron.d/cron
+RUN crontab -u www-data /etc/cron.d/cron
+
+RUN usermod -a -G crontab www-data
+RUN chmod gu+s /usr/sbin/cron
+
+RUN python3 -c "import socket as s; sock = s.socket(s.AF_UNIX); sock.bind('/dev/shm/supervisor.sock')"
+
+
+USER www-data
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+
+WORKDIR /var/www

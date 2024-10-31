@@ -1,0 +1,7 @@
+SHELL=/bin/bash
+
+#LARAVEL
+#* * * * * cd /var/www && /usr/local/bin/php /var/www/artisan schedule:run
+
+#MAGENTO
+#* * * * * /usr/local/bin/php /var/www/src/bin/magento cron:run 2>&1 | grep -v "Ran jobs by schedule" >> /var/www/src/var/log/magento.cron.log
