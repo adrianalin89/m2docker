@@ -75,7 +75,7 @@ services:
     volumes:
       - dbdata:/var/lib/mysql
     networks:
-      - nginx-proxy
+      - shared-db-network
       - {{project_name}}-network
 
 volumes:
@@ -87,5 +87,7 @@ volumes:
 
 networks:
   nginx-proxy:
+    external: true
+  shared-db-network:
     external: true
   {{project_name}}-network:
