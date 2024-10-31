@@ -59,6 +59,16 @@ services:
       --max_allowed_packet=64M
       --optimizer_use_condition_selectivity=1
       --optimizer_switch="rowid_filter=off"
+      --innodb_buffer_pool_size=4G
+      --innodb_log_buffer_size=256M
+      --innodb_log_file_size=1G
+      --innodb_write_io_threads=16
+    environment:
+      MYSQL_HOST: "${MYSQL_HOST}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
     ports:
       - "3306"
     volumes:
