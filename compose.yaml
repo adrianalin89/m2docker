@@ -41,7 +41,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
-      - nginx-proxy
+      - mail-catcher-network
+      - open-search-network
       - {{project_name}}-network
 
   {{project_name}}-redis:
@@ -91,3 +92,7 @@ networks:
   shared-db-network:
     external: true
   {{project_name}}-network:
+  open-search-network:
+    external: true
+  mail-catcher-network:
+    external: true
