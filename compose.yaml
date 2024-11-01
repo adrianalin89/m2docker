@@ -6,6 +6,7 @@ services:
     volumes:
       - ./:/var/www
       - ./images/nginx/default.conf:/etc/nginx/conf.d/custom.conf
+      - ./images/nginx/magento.conf:/etc/nginx/magento.conf
     ports:
       - "80"
     depends_on:
