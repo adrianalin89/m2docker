@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+bin/cli npm --prefix app/design/frontend/{{project_name}}/base/web/tailwind "$@"
