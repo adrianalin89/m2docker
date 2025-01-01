@@ -277,4 +277,7 @@ return [
     ],
 ],
 'remote_storage' => [ 'driver' => 'file' ],
+'install' => [
+    'date' => 'Sat, 17 Oct 2020 19:17:20 +0000'
+]
 ];
