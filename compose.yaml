@@ -80,6 +80,24 @@ services:
       - shared-db-network
       - {{project_name}}-network
 
+  {{project_name}}-rabbitmq:
+    container_name: {{project_name}}-rabbitmq
+    image: rabbitmq:3.12-management-alpine
+    environment:
+      RABBITMQ_HOST: "${RABBITMQ_HOST}"
+      RABBITMQ_PORT: "${RABBITMQ_PORT}"
+      RABBITMQ_MANAGEMENT_PORT: "${RABBITMQ_MANAGEMENT_PORT}"
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS}"
+      RABBITMQ_DEFAULT_VHOST: "${RABBITMQ_DEFAULT_VHOST}"
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    networks:
+      - {{project_name}}-network
+
 volumes:
   appdata:
   dbdata:
