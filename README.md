@@ -15,10 +15,11 @@ The projects containers consist of:
    - PHP
    - MySQL
    - Redis
+   - RabbitMQ
 
 ## Prerequisites
 - [Docker Compose](https://docs.docker.com/engine/install/ubuntu/)
-- [NGINX PROXY](https://github.com/adrianalin89/nginx-proxy) need's to be setup and running
+- [NGINX PROXY](https://github.com/adrianalin89/nginx-proxy) project need's to be setup and running
 
 ## Setup Instructions
 ### Project Structure

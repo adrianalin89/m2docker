@@ -54,6 +54,8 @@ services:
       - "6379"
     networks:
       - {{project_name}}-network
+    volumes:
+        - redisdata:/data
 
   {{project_name}}-db:
     container_name: {{project_name}}-db
@@ -99,11 +101,9 @@ services:
       - {{project_name}}-network
 
 volumes:
-  appdata:
   dbdata:
+  redisdata:
   rabbitmqdata:
-  sockdata:
-  ssldata:
 
 networks:
   nginx-proxy:
