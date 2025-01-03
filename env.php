@@ -261,6 +261,10 @@ return [
     ]
 ],
 
+/**
+ * This debuging for the db will create big log files so uncoment only if you need to debug the db
+ */
+/*
 'db_logger' => [
     'output' => 'file',
     'log_everything' => 1,
@@ -276,6 +280,7 @@ return [
         'xdebug_host' => 'host.docker.internal',
     ],
 ],
+*/
 'remote_storage' => [ 'driver' => 'file' ],
 'install' => [
     'date' => 'Sat, 17 Oct 2020 19:17:20 +0000'
