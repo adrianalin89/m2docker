@@ -175,6 +175,137 @@ At this point you should have a working Magento 2 project running on your server
 - `bin/setup-magento` prompts the fallowing error:`There are no commands defined in the "config" namespace.` you need to run `bin/magento set:up` to see what the issue is. After resolving the issue you will have to manually change the base url in the database.
 - `bin/magento set:up` prompts the fallowing error:'Could not validate a connection to Elasticsearch. No alive nodes found in your cluster'. It may mean the magento version is not compatible with opensearch and you need to change to elasticsearch. You can do this by changing the network in the `compose.yaml`  from `open-search-network` to `elastic-search-network` (also go to the env.php file and under elasticsearch change the host to `elastisearch`) and then run `bin/restart` and try again.
 
+### Caching
+
+For an improved developer experience, caches are automatically refreshed when related files are updated, courtesy of [cache-clean](https://github.com/mage2tv/magento-cache-clean). This means you can keep all of the standard Magento caches enabled, and this script will only clear the specific caches needed, and only when necessary.
+
+To disable this functionality, uncomment the last line in the `bin/start` file to disable the watcher.
+
+### Redis
+
+Redis is now the default cache and session storage engine, and is automatically configured & enabled when running `bin/setup` on new installs.
+
+Use the following lines to enable Redis on existing installs:
+
+**Enable for Cache:**
+
+`bin/magento setup:config:set --cache-backend=redis --cache-backend-redis-server=redis --cache-backend-redis-db=0`
+
+**Enable for Full Page Cache:**
+
+`bin/magento setup:config:set --page-cache=redis --page-cache-redis-server=redis --page-cache-redis-db=1`
+
+**Enable for Session:**
+
+`bin/magento setup:config:set --session-save=redis --session-save-redis-host=redis --session-save-redis-log-level=4 --session-save-redis-db=2`
+
+You may also monitor Redis by running: `bin/redis redis-cli monitor`
+
+For more information about Redis usage with Magento, <a href="https://devdocs.magento.com/guides/v2.4/config-guide/redis/redis-session.html" target="_blank">see the DevDocs</a>.
+
+
+### Xdebug & VS Code
+
+Install and enable the PHP Debug extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=felixfbecker.php-debug).
+
+Otherwise, this project now automatically sets up Xdebug support with VS Code. If you wish to set this up manually, please see the [`.vscode/launch.json`](https://github.com/markshust/docker-magento/blame/master/compose/.vscode/launch.json) file.
+
+### Xdebug & VS Code in a WSL2 environment
+
+Install and enable the PHP Debug extension from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=felixfbecker.php-debug).
+
+Otherwise, this project now automatically sets up Xdebug support with VS Code. If you wish to set this up manually, please see the [`.vscode/launch.json`](https://github.com/markshust/docker-magento/blame/master/compose/.vscode/launch.json) file.
+
+1. In VS Code, make sure that it's running in a WSL window, rather than in the default window.
+2. Install the [`PHP Debug`](https://marketplace.visualstudio.com/items?itemName=xdebug.php-debug) extension on VS Code.
+3. Create a new configuration file inside the project. Go to the `Run and Debug` section in VS Code, then click on `create a launch.json file`.
+4. Attention to the following configs inside the file:
+    * The port must be the same as the port on the xdebug.ini file.
+    ```bash
+      bin/cli cat /usr/local/etc/php/php.ini
+    ```
+    ```bash
+      memory_limit = 4G
+      max_execution_time = 1800
+      zlib.output_compression = On
+      cgi.fix_pathinfo = 0
+      date.timezone = UTC
+
+      xdebug.mode = debug
+      xdebug.client_host = host.docker.internal
+      xdebug.idekey = PHPSTORM
+      xdebug.client_port=9003
+      #You can uncomment the following line to force the debug with each request
+      #xdebug.start_with_request=yes
+
+      upload_max_filesize = 100M
+      post_max_size = 100M
+      max_input_vars = 10000
+    ```
+    * The pathMappings should have the same folder path as the project inside the Docker container.
+    ```json
+      {
+          "version": "0.2.0",
+          "configurations": [
+              {
+                  "name": "Listen for XDebug",
+                  "type": "php",
+                  "request": "launch",
+                  "port": 9003,
+                  "pathMappings": {
+                      "/var/www/html": "${workspaceFolder}"
+                  },
+                  "hostname": "localhost"
+              }
+          ]
+      }
+    ```
+5. Run the following command in the Windows Powershell. It allows WSL through the firewall, otherwise breakpoints might not be hitten.
+    ```powershell
+    New-NetFirewallRule -DisplayName "WSL" -Direction Inbound  -InterfaceAlias "vEthernet (WSL)"  -Action Allow
+    ```
+
+### Xdebug & PhpStorm
+
+1.  First, install the [Chrome Xdebug helper](https://chrome.google.com/webstore/detail/xdebug-helper/eadndfjplgieldjbigjakmdgkmoaaaoc). After installed, right click on the Chrome icon for it and go to Options. Under IDE Key, select PhpStorm from the list to set the IDE Key to "PHPSTORM", then click Save.
+
+2.  Next, enable Xdebug debugging in the PHP container by running: `bin/xdebug enable`.
+
+3.  Then, open `PhpStorm > Preferences > PHP` and configure:
+
+    * `CLI Interpreter`
+        * Create a new interpreter from the `From Docker, Vagrant, VM...` list.
+        * Select the Docker Compose option.
+        * For Server, select `Docker`. If you don't have Docker set up as a server, create one and name it `Docker`.
+        * For Configuration files, add both the `compose.yaml` and `compose.dev.yaml` files from your project directory.
+        * For Service, select `phpfpm`, then click OK.
+        * Name this CLI Interpreter `phpfpm`, then click OK again.
+
+    * `Path mappings`
+        * There is no need to define a path mapping in this area.
+
+4. Open `PhpStorm > Preferences > PHP > Debug` and ensure Debug Port is set to `9000,9003`.
+
+5. Open `PhpStorm > Preferences > PHP > Servers` and create a new server:
+
+    * For the Name, set this to the value of your domain name (ex. `magento.test`).
+    * For the Host, set this to the value of your domain name (ex. `magento.test`).
+    * Keep port set to `80`.
+    * Check the "Use path mappings" box and map `src` to the absolute path of `/var/www/html`.
+
+6. Go to `Run > Edit Configurations` and create a new `PHP Remote Debug` configuration.
+
+    * Set the Name to the name of your domain (ex. `magento.test`).
+    * Check the `Filter debug connection by IDE key` checkbox, select the Server you just setup.
+    * For IDE key, enter `PHPSTORM`. This value should match the IDE Key value set by the Chrome Xdebug Helper.
+    * Click OK to finish setting up the remote debugger in PHPStorm.
+
+7. Open up `pub/index.php` and set a breakpoint near the end of the file.
+
+    * Start the debugger with `Run > Debug 'magento.test'`, then open up a web browser.
+    * Ensure the Chrome Xdebug helper is enabled by clicking on it and selecting Debug. The icon should turn bright green.
+    * Navigate to your Magento store URL, and Xdebug should now trigger the debugger within PhpStorm at the toggled breakpoint.
+
 
 ### Contributions
 Want to make this project better? Feel free to submit a PR or open an issue. We promise not to ignore it (too much).
