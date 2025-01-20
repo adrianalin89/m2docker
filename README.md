@@ -50,6 +50,8 @@ Start project containers, first start will take a while to build the images. If 
 ```bash
 bin/start
 ```
+If this is a new clean magento installation continue the steps from "Setup new empty magento project".
+
 After the build process is done, you can clone your project repository into the `src` folder. Go to src `cd src` and do a clone `git clone [YOUR_PROJECT_REPOSITORY] .` Don't forget to add a dot at the end of the command to clone the repository into the current folder.
 
 > **Note:** Restart Nginx proxy containers after project start to auto generate the SSL certificates. and for the change to take effect.
@@ -83,6 +85,18 @@ bin/restart
 ```bash
 bin/magento setup:upgrade
 ```
+### Setup new empty magento project
+After starting the container and editing the `.env` file you will have to download the version of Magento that you want to use.
+
+``` 
+bin/download community 2.4.7-p3
+```
+Use `bin/setup-install` to automatically install it using the information from the env file. This will seed the DB and generate the env.php file.
+
+Use `bin/setup-magento` to add the new domain to hosts file.
+
+Restart the container `bin/restart` and you shod be good to go `bin/magento set:up`
+#
 
 At this point you should have a working Magento 2 project running on your server. The fallowing documentation is not in a reticular order, and it's being developed as we go.
 
@@ -164,7 +178,8 @@ At this point you should have a working Magento 2 project running on your server
 - Manual adjustments needed for multiple domain routing
 
 
-### Setup new empty magento project
+
+
 ### add dummy data
 ### how to use the update command
 ### create chat ores for grunt, pcx, xdebug, testing,... and all that stuff
