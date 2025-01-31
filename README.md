@@ -58,7 +58,7 @@ After the build process is done, you can clone your project repository into the 
 ### Database Setup
 You will need to have a db backeup ready at this point to import. Place the sql file in the root of this project (not in src) and run the following command (replace placeholders) to import the database. Depending on the size of the database, this process may take a while. You can remove the sql dump after the import is done.
 ```
-bin/clinotty mysql -h <database-container-name> -u root -p'<password>' <database-name> < <file.sql>
+bin/clinotty mysql -h {{project_name}}-db -u root -p'<password>' <database-name> < <file.sql>
 ```
 
 ### Pull Magento Dependencies
@@ -145,15 +145,15 @@ At this point you should have a working Magento 2 project running on your server
 - `bin/restart`: Stop and then start all containers.
 - `bin/root`: Run any CLI command as root without going into the bash prompt. Ex `bin/root apt-get install nano`
 - `bin/rootnotty`: Run any CLI command as root with no TTY. Ex `bin/rootnotty chown -R app:app /var/www/html`
-- `bin/setup`: Run the Magento setup process to install Magento from the source code, with optional domain name. Defaults to `magento.test`. Ex. `bin/setup magento.test`
+- `bin/setup`: Run the Magento setup process to install Magento from the source code, with optional domain name. Defaults to `{{project_name}}.test`. Ex. `bin/setup {{project_name}}.test`
 - `bin/setup-composer-auth`: Setup authentication credentials for Composer.
 - `bin/setup-dcker` : Setup Magento project in Docker.
 - `bin/setup-magento` : Setup Magento ....
 - `bin/setup-grunt`: Install and configure Grunt JavaScript task runner to compile .less files
 - `bin/setup-install`: Automates the installation process for a Magento instance.
 - `bin/setup-integration-tests`: Script to set up integration tests.
-- `bin/setup-pwa-studio`: (BETA) Install PWA Studio (requires NodeJS and Yarn to be installed on the host machine). Pass in your base site domain, otherwise the default `master-7rqtwti-mfwmkrjfqvbjk.us-4.magentosite.cloud` will be used. Ex: `bin/setup-pwa-studio magento.test`.
-- `bin/setup-pwa-studio-sampledata`: This script makes it easier to install Venia sample data. Pass in your base site domain, otherwise the default `master-7rqtwti-mfwmkrjfqvbjk.us-4.magentosite.cloud` will be used. Ex: `bin/setup-pwa-studio-sampledata magento.test`.
+- `bin/setup-pwa-studio`: (BETA) Install PWA Studio (requires NodeJS and Yarn to be installed on the host machine). Pass in your base site domain, otherwise the default `master-7rqtwti-mfwmkrjfqvbjk.us-4.magentosite.cloud` will be used. Ex: `bin/setup-pwa-studio {{project_name}}.test`.
+- `bin/setup-pwa-studio-sampledata`: This script makes it easier to install Venia sample data. Pass in your base site domain, otherwise the default `master-7rqtwti-mfwmkrjfqvbjk.us-4.magentosite.cloud` will be used. Ex: `bin/setup-pwa-studio-sampledata {{project_name}}.test`.
 - `bin/spx`: Disable or enable output compression to enable or disbale SPX. Accepts params `disable` (default) or `enable`. Ex. `bin/spx enable`
 - `bin/start`: Start all containers, good practice to use this instead of `docker-compose up -d`, as it may contain additional helpers.
 - `bin/status`: Check the container status.
@@ -172,15 +172,43 @@ At this point you should have a working Magento 2 project running on your server
 
 
 # TO DO
+#### de facut documentatia mai clara pentru tipul de certificare
+
+
+
+
 
 ### Multiple Domain Configuration
 - Current limitation: `bin/setup-magento` supports only a single domain
 - Manual adjustments needed for multiple domain routing
+Use a single domain to instal it and after that update the `.env` file `DOMAIN_HOSTS` add multiple domains separated by comma `,`. 
 
-
-
+### HTPASSWD project
+Run the following command to add a user to the `.htpasswd` file. Change the `admin` to the user you want to add.
+```
+sh -c "echo -n 'admin:' >> images/nginx/.htpasswd"
+```
+Run the following command to add a password to the `.htpasswd` file. A password will be prompted to be entered.
+```
+sh -c "openssl passwd -apr1 >> images/nginx/.htpasswd"
+```
+In images/nginx/default.conf find and update the location / to the fallowing:
+```
+location / {
+        try_files $uri $uri/ /index.php?$query_string;
+        # Uncomment to enable naxsi on this location
+        #auth_basic "Restricted Area";
+        #auth_basic_user_file /etc/nginx/.htpasswd;
+    }
+```
+Add a volume to the nginx service in the `compose.yml` file to mount the `.htpasswd` file to the container.
+```
+    volumes:
+      - ./images/nginx/.htpasswd:/etc/nginx/.htpasswd
+```
 
 ### add dummy data
+`` bin/magento sampledata:deploy`` to add default magento dummy data and then run `bin/magento setup:upgrade` to install it.
 ### how to use the update command
 ### create chat ores for grunt, pcx, xdebug, testing,... and all that stuff
 ### Troubleshooting
@@ -303,21 +331,21 @@ Otherwise, this project now automatically sets up Xdebug support with VS Code. I
 
 5. Open `PhpStorm > Preferences > PHP > Servers` and create a new server:
 
-    * For the Name, set this to the value of your domain name (ex. `magento.test`).
-    * For the Host, set this to the value of your domain name (ex. `magento.test`).
+    * For the Name, set this to the value of your domain name (ex. `{{project_name}}.test`).
+    * For the Host, set this to the value of your domain name (ex. `{{project_name}}.test`).
     * Keep port set to `80`.
-    * Check the "Use path mappings" box and map `src` to the absolute path of `/var/www/html`.
+    * Check the "Use path mappings" box and map `src` to the absolute path of `/var/www/src`.
 
 6. Go to `Run > Edit Configurations` and create a new `PHP Remote Debug` configuration.
 
-    * Set the Name to the name of your domain (ex. `magento.test`).
+    * Set the Name to the name of your domain (ex. `{{project_name}}.test`).
     * Check the `Filter debug connection by IDE key` checkbox, select the Server you just setup.
     * For IDE key, enter `PHPSTORM`. This value should match the IDE Key value set by the Chrome Xdebug Helper.
     * Click OK to finish setting up the remote debugger in PHPStorm.
 
 7. Open up `pub/index.php` and set a breakpoint near the end of the file.
 
-    * Start the debugger with `Run > Debug 'magento.test'`, then open up a web browser.
+    * Start the debugger with `Run > Debug '{{project_name}}.test'`, then open up a web browser.
     * Ensure the Chrome Xdebug helper is enabled by clicking on it and selecting Debug. The icon should turn bright green.
     * Navigate to your Magento store URL, and Xdebug should now trigger the debugger within PhpStorm at the toggled breakpoint.
 
