@@ -60,6 +60,7 @@ services:
   {{project_name}}-db:
     container_name: {{project_name}}-db
     image: mariadb:10.6
+    restart: unless-stopped
     command:
       --max_allowed_packet=64M
       --optimizer_use_condition_selectivity=1
@@ -85,6 +86,7 @@ services:
   {{project_name}}-rabbitmq:
     container_name: {{project_name}}-rabbitmq
     image: rabbitmq:3.12-management-alpine
+    restart: unless-stopped
     environment:
       RABBITMQ_HOST: "${RABBITMQ_HOST}"
       RABBITMQ_PORT: "${RABBITMQ_PORT}"
@@ -93,8 +95,8 @@ services:
       RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS}"
       RABBITMQ_DEFAULT_VHOST: "${RABBITMQ_DEFAULT_VHOST}"
     ports:
-      - "15672:15672"
-      - "5672:5672"
+      - 15672
+      - 5672
     volumes:
       - rabbitmqdata:/var/lib/rabbitmq
     networks:
