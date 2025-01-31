@@ -33,7 +33,7 @@ project-root/
 └── .env           # Project configuration
 ```
 ### Project Configuration
-Edit the `.env` file to configure your project:
+Copy the `.env.sample` to `.env` and edit the file:
   - Set the `PROJECT_NAME` variable to your project name
   - Additional change the <b>domain</b> if it's not local hosted
   - Set <b>users</b> and <b>passwords</b> for all the services 
