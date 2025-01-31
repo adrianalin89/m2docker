@@ -85,6 +85,7 @@ bin/restart
 ```bash
 bin/magento setup:upgrade
 ```
+
 ### Setup new empty magento project
 After starting the container and editing the `.env` file you will have to download the version of Magento that you want to use.
 
@@ -217,6 +218,7 @@ Add a volume to the nginx service in the `compose.yml` file to mount the `.htpas
 - Ensure all required environment variables are set
 - `bin/setup-magento` prompts the fallowing error:`There are no commands defined in the "config" namespace.` you need to run `bin/magento set:up` to see what the issue is. After resolving the issue you will have to manually change the base url in the database.
 - `bin/magento set:up` prompts the fallowing error:'Could not validate a connection to Elasticsearch. No alive nodes found in your cluster'. It may mean the magento version is not compatible with opensearch and you need to change to elasticsearch. You can do this by changing the network in the `compose.yaml`  from `open-search-network` to `elastic-search-network` (also go to the env.php file and under elasticsearch change the host to `elastisearch`) and then run `bin/restart` and try again.
+- if using Hyva theme for magento and the Hyva css files are not loaded properly run `rm -rf pub/static/frontend/*` and refresh the page (once or twice)
 
 ### Caching
 
