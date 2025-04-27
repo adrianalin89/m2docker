@@ -61,8 +61,8 @@ services:
 
   {{project_name}}-db:
     container_name: {{project_name}}-db
-    #image: mariadb:10.6 #for older versions
-    image: mariadb:11.4
+    image: mariadb:10.6 #for older versions
+    #image: mariadb:11.4 #magento 2.8+
     restart: unless-stopped
     command:
       --max_allowed_packet=64M
