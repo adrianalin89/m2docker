@@ -36,7 +36,6 @@ return [
  */
 'cache' => [ 'frontend' => [
     'default' => [ 'id_prefix' => '69d_',
-        /*
         'backend' => 'Magento\\Framework\\Cache\\Backend\\Redis',
         'backend_options' => [
             'server' => '{{project_name}}-redis',
@@ -46,10 +45,8 @@ return [
             'compress_data' => '1',
             'compression_lib' => ''
         ]
-        */
     ],
     'page_cache' => [ 'id_prefix' => '69d_',
-        /*
         'backend' => 'Magento\\Framework\\Cache\\Backend\\Redis',
         'backend_options' => [
             'server' => '{{project_name}}-redis',
@@ -59,7 +56,6 @@ return [
             'compress_data' => '0',
             'compression_lib' => ''
         ]
-        */
     ]
 ],
     'allow_parallel_generation' => false,               // A redis FLAG for eliminate waiting for locks DEFAULT: false
@@ -92,7 +88,6 @@ return [
  * Uncomment the following lines to enable rabitmq server
  */
 'queue' => [
-    /*
     'amqp' => [
         'host' => '{{project_name}}-rabbitmq',
         'port' => '5672',
@@ -103,7 +98,6 @@ return [
         'reconnect_attempts' => 3,
         'connect_timeout' => 5,
     ],
-    */
     'consumers_wait_for_messages' => 0
     /**
      * 1 — Consumers continue to process messages from the message queue until reaching the max_messages value
@@ -189,7 +183,7 @@ return [
  * Uncomment the following lines to enable redis session
  */
 'session' => [
-    'save' => 'files',
+    //save' => 'files',
     /*
     'session_name' => 'PHPSESSID',
     'session_save_path' => '/var/session',
@@ -203,7 +197,6 @@ return [
     'use_frontend_sid' => true
     */
 
-    /*
     'save' => 'redis',
     'redis' => [
          'host' => '{{project_name}}-redis',
@@ -229,7 +222,6 @@ return [
          'sentinel_connect_retries' => '5',
          'sentinel_verify_master' => '0'
      ]
-    */
 ],
 
 /**

@@ -20,5 +20,7 @@ if ! grep -q "$DOMAIN_HOST" /etc/hosts; then
 fi
 
 echo "Set https://${DOMAIN_HOST}/ to web/secure/base_url and web/unsecure/base_url"
-bin/clinotty bin/magento config:set web/secure/base_url https://"$DOMAIN_HOST"/
-bin/clinotty bin/magento config:set web/unsecure/base_url https://"$DOMAIN_HOST"/
+#bin/clinotty bin/magento config:set web/secure/base_url https://"$DOMAIN_HOST"/
+bin/clinotty bin/magento setup:store-config:set --base-url="http://$DOMAIN_HOST/"
+#bin/clinotty bin/magento config:set web/unsecure/base_url https://"$DOMAIN_HOST"/
+bin/clinotty bin/magento setup:store-config:set --base-url-secure="http://$DOMAIN_HOST/"

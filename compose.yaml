@@ -7,6 +7,7 @@ services:
       - ./:/var/www
       - ./images/nginx/default.conf:/etc/nginx/conf.d/custom.conf
       - ./images/nginx/magento.conf:/etc/nginx/magento.conf
+      #- ./images/nginx/.htpasswd:/etc/nginx/.htpasswd
     ports:
       - "80"
     depends_on:
@@ -48,7 +49,8 @@ services:
 
   {{project_name}}-redis:
     container_name: {{project_name}}-redis
-    image: redis:7.2-alpine
+    #image: redis:7.2-alpine #for older versions
+    redis:8.1-alpine
     restart: unless-stopped
     ports:
       - "6379"
@@ -59,7 +61,8 @@ services:
 
   {{project_name}}-db:
     container_name: {{project_name}}-db
-    image: mariadb:10.6
+    #image: mariadb:10.6 #for older versions
+    image: mariadb:11.4
     restart: unless-stopped
     command:
       --max_allowed_packet=64M
@@ -85,7 +88,8 @@ services:
 
   {{project_name}}-rabbitmq:
     container_name: {{project_name}}-rabbitmq
-    image: rabbitmq:3.12-management-alpine
+    #image: rabbitmq:3.12-management-alpine  #for older versions
+    image: rabbitmq:4.1-management-alpine
     restart: unless-stopped
     environment:
       RABBITMQ_HOST: "${RABBITMQ_HOST}"
