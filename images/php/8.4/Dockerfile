@@ -56,7 +56,7 @@ RUN apt-get update && apt-get install -y \
   && rm -rf /var/lib/apt/lists/*
 
 RUN pecl channel-update pecl.php.net && pecl install \
-    redis-6.0.2 \
+    redis-6.2.0 \
     ssh2-1.4.1 \
     swoole-6.0.2\
     xdebug-3.4.2 \
