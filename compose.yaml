@@ -50,7 +50,7 @@ services:
   {{project_name}}-redis:
     container_name: {{project_name}}-redis
     #image: redis:7.2-alpine #for older versions
-    image: redis:8.1-alpine
+    image: valkey/valkey:8.1-alpine
     restart: unless-stopped
     ports:
       - "6379"
