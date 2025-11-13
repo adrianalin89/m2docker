@@ -3,9 +3,9 @@
 <img src="https://img.shields.io/badge/magento-2.X-brightgreen.svg?logo=magento&longCache=true" alt="Supported Magento Versions" />[![Test](https://github.com/nginx-proxy/nginx-proxy/actions/workflows/test.yml/badge.svg)](https://github.com/nginx-proxy/nginx-proxy/actions/workflows/test.yml)
 <img src="https://img.shields.io/badge/maintained%3F-yes-brightgreen.svg" alt="Maintained - Yes" />
 
-This is a modify version of the original dcoker magento [markshust/docker-magento]() project. 
-The main difference is that this project is using a custom [NGINX PROXY](https://github.com/adrianalin89/nginx-proxy) 
-to have more then one project running on the same server. 
+This is a modify version of the original dcoker magento [markshust/docker-magento]() project.
+The main difference is that this project is using a custom [NGINX PROXY](https://github.com/adrianalin89/nginx-proxy)
+to have more then one project running on the same server.
 A lot of core features of the original repo are modify so please dont just copy cod from one place to the other and hope it's works as expected.
 There will be a lot of changes to the way this project is setup and how it works. So to not get confused please read the whole documentation.
 
@@ -14,8 +14,7 @@ The projects containers consist of:
    - NGINX
    - PHP
    - MySQL
-   - Redis
-   - RabbitMQ
+   - Valkey(Redis)
 
 ## Prerequisites
 - [Docker Compose](https://docs.docker.com/engine/install/ubuntu/)
@@ -36,9 +35,8 @@ project-root/
 Copy the `.env.sample` to `.env` and edit the file:
   - Set the `PROJECT_NAME` variable to your project name
   - Additional change the <b>domain</b> if it's not local hosted
-  - Set <b>users</b> and <b>passwords</b> for all the services 
+  - Set <b>users</b> and <b>passwords</b> for all the services
 
-Comment RabbitMQ if you don't use it `docker-compose.yml` (coment the volume also)
 ```
 # Run setup command to update the project with the new env variables
 bin/setup-docker
@@ -89,8 +87,10 @@ bin/magento setup:upgrade
 ### Setup new empty magento project
 After starting the container and editing the `.env` file you will have to download the version of Magento that you want to use.
 
-``` 
+```
 bin/download community 2.4.7-p3
+or
+bin/download mageos 2
 ```
 Use `bin/setup-install` to automatically install it using the information from the env file. This will seed the DB and generate the env.php file.
 
@@ -164,6 +164,9 @@ At this point you should have a working Magento 2 project running on your server
 - `bin/test/unit-xdebug`: Run unit tests with Xdebug. Ex. `bin/test/unit-xdebug my-dir`
 - `bin/update`: Update your project to the most recent version of `docker-magento`.
 - `bin/xdebug`: Disable or enable Xdebug. Accepts argument `disable`, `enable`, or `status`. Ex. `bin/xdebug enable`
+- `bin/migrate-to-releases`: Migrate folder structure for 0DownTime Deploy.
+- `bin/deploy-releases`: Deploys the project in a separated folder and generates a release file.
+- `bin/roll-back`: Roll back to a previous release.
 
 > [!IMPORTANT]
 >
@@ -182,7 +185,7 @@ At this point you should have a working Magento 2 project running on your server
 ### Multiple Domain Configuration
 - Current limitation: `bin/setup-magento` supports only a single domain
 - Manual adjustments needed for multiple domain routing
-Use a single domain to instal it and after that update the `.env` file `DOMAIN_HOSTS` add multiple domains separated by comma `,`. 
+Use a single domain to instal it and after that update the `.env` file `DOMAIN_HOSTS` add multiple domains separated by comma `,`.
 
 ### HTPASSWD project
 Run the following command to add a user to the `.htpasswd` file. Change the `admin` to the user you want to add.

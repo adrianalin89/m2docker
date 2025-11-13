@@ -30,14 +30,14 @@ services:
     user: ${USER_ID}:${GROUP_ID}
     build:
       dockerfile: Dockerfile
-      context: images/php/8.3
+      context: images/php/8.4
       args:
         - USER_ID=${USER_ID}
         - GROUP_ID=${GROUP_ID}
     volumes:
       - ./:/var/www
-      - ./images/php/8.3/conf/php.ini:/usr/local/etc/php/conf.d/php.ini
-      - ./images/php/8.3/conf/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
+      - ./images/php/8.4/conf/php.ini:/usr/local/etc/php/conf.d/php.ini
+      - ./images/php/8.4/conf/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
     tmpfs:
       - /dev/shm
     extra_hosts:
@@ -61,8 +61,8 @@ services:
 
   {{project_name}}-db:
     container_name: {{project_name}}-db
-    image: mariadb:10.6 #for older versions
-    #image: mariadb:11.4 #magento 2.8+
+    #image: mariadb:10.6 #for older versions
+    image: mariadb:11.4 #magento 2.8+
     restart: unless-stopped
     command:
       --max_allowed_packet=64M
@@ -86,30 +86,25 @@ services:
       - shared-db-network
       - {{project_name}}-network
 
-  {{project_name}}-rabbitmq:
-    container_name: {{project_name}}-rabbitmq
-    #image: rabbitmq:3.12-management-alpine  #for older versions
-    image: rabbitmq:4.1-management-alpine
-    restart: unless-stopped
-    environment:
-      RABBITMQ_HOST: "${RABBITMQ_HOST}"
-      RABBITMQ_PORT: "${RABBITMQ_PORT}"
-      RABBITMQ_MANAGEMENT_PORT: "${RABBITMQ_MANAGEMENT_PORT}"
-      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER}"
-      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS}"
-      RABBITMQ_DEFAULT_VHOST: "${RABBITMQ_DEFAULT_VHOST}"
-    ports:
-      - 15672
-      - 5672
+  {{project_name}}-fluentbit:
+    container_name: {{project_name}}-fluentbit
+    image: fluent/fluent-bit:2.1
+    user: ${USER_ID}:${GROUP_ID}
     volumes:
-      - rabbitmqdata:/var/lib/rabbitmq
+      - ./images/fluentbit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./images/fluentbit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - ./:/var/www:ro
+    environment:
+      - PROJECT_NAME=${PROJECT_NAME}
     networks:
       - {{project_name}}-network
+      - open-search-network
+    depends_on:
+      - {{project_name}}-php
 
 volumes:
   dbdata:
   redisdata:
-  rabbitmqdata:
 
 networks:
   nginx-proxy:

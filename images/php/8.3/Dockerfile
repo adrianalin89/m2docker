@@ -52,6 +52,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     zlib1g-dev \
     nano \
+    logrotate \
   && rm -rf /var/lib/apt/lists/*
 
 RUN pecl channel-update pecl.php.net && pecl install \
@@ -117,6 +118,7 @@ RUN curl -sS https://getcomposer.org/installer | \
 
 COPY conf/spx.ini $PHP_INI_DIR/conf.d/spx.ini
 COPY conf/msmtprc /etc/msmtprc
+COPY conf/logrotate-magento /etc/logrotate.d/magento
 
 RUN apt-get update && apt-get install -y supervisor
 ADD conf/crontab /etc/cron.d/cron
@@ -125,8 +127,7 @@ RUN crontab -u www-data /etc/cron.d/cron
 RUN usermod -a -G crontab www-data
 RUN chmod gu+s /usr/sbin/cron
 
-RUN python3 -c "import socket as s; sock = s.socket(s.AF_UNIX); sock.bind('/dev/shm/supervisor.sock')"
-
+#RUN python3 -c "import socket as s; sock = s.socket(s.AF_UNIX); sock.bind('/dev/shm/supervisor.sock')"
 
 USER www-data
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
