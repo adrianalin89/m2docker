@@ -21,5 +21,3 @@ fi
 find "$TARGET_FOLDER" -type f -not -path "./bin/setup-docker" -exec sed -i "s/$SEARCH_STRING/$PROJECT_NAME/g" {} +
 
 echo "Replacement was successful! $PROJECT_NAME"
-
-bin/setup-rabbitmq
