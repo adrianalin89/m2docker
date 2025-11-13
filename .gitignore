@@ -6,3 +6,15 @@
 .vscode/
 src/
 .env
+*.tar.gz
+*.tar
+releases/
+shared/
+src
+releases
+shared
+current
+stage.sh
+master.sh
+production.sh
+*.sql
