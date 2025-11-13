@@ -14,6 +14,7 @@ src
 releases
 shared
 current
+current/
 stage.sh
 master.sh
 production.sh

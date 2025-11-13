@@ -19,6 +19,8 @@ if ! grep -q "$DOMAIN_HOST" /etc/hosts; then
     echo "127.0.0.1 ::1 $DOMAIN_HOST" | sudo tee -a /etc/hosts
 fi
 
+bin/setup-rabbitmq
+
 echo "Set https://${DOMAIN_HOST}/ to web/secure/base_url and web/unsecure/base_url"
 #bin/clinotty bin/magento config:set web/secure/base_url https://"$DOMAIN_HOST"/
 bin/clinotty bin/magento setup:store-config:set --base-url="https://$DOMAIN_HOST/"
