@@ -34,6 +34,10 @@ services:
       args:
         - USER_ID=${USER_ID}
         - GROUP_ID=${GROUP_ID}
+    environment:
+      - ECOMSCAN_EMAIL=${ECOMSCAN_EMAIL:-alin.munteanu@roweb.com}
+      - ECOMSCAN_LICENSE_KEY=${ECOMSCAN_LICENSE_KEY:-trial}
+      - ECOMSCAN_MIN_CONFIDENCE=${ECOMSCAN_MIN_CONFIDENCE:-50}
     volumes:
       - ./:/var/www
       - ./images/php/8.4/conf/php.ini:/usr/local/etc/php/conf.d/php.ini
@@ -45,6 +49,7 @@ services:
     networks:
       - mail-catcher-network
       - open-search-network
+      - rabbitmq-network
       - {{project_name}}-network
 
   {{project_name}}-redis:
@@ -115,4 +120,6 @@ networks:
   open-search-network:
     external: true
   mail-catcher-network:
+    external: true
+  rabbitmq-network:
     external: true

@@ -119,7 +119,8 @@ RUN curl -sS https://getcomposer.org/installer | \
 COPY conf/spx.ini $PHP_INI_DIR/conf.d/spx.ini
 COPY conf/msmtprc /etc/msmtprc
 COPY conf/logrotate-magento /etc/logrotate.d/magento
-
+COPY conf/ecomscan-daily.sh /usr/local/bin/ecomscan-daily.sh
+RUN chmod +x /usr/local/bin/ecomscan-daily.sh
 RUN apt-get update && apt-get install -y supervisor
 ADD conf/crontab /etc/cron.d/cron
 RUN crontab -u www-data /etc/cron.d/cron
