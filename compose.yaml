@@ -30,7 +30,7 @@ services:
     user: ${USER_ID}:${GROUP_ID}
     build:
       dockerfile: Dockerfile
-      context: images/php/8.3
+      context: images/php/${PHP_VERSION}
       args:
         - USER_ID=${USER_ID}
         - GROUP_ID=${GROUP_ID}
@@ -40,8 +40,8 @@ services:
       - ECOMSCAN_MIN_CONFIDENCE=${ECOMSCAN_MIN_CONFIDENCE:-50}
     volumes:
       - ./:/var/www
-      - ./images/php/8.4/conf/php.ini:/usr/local/etc/php/conf.d/php.ini
-      - ./images/php/8.4/conf/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
+      - ./images/php/${PHP_VERSION}/conf/php.ini:/usr/local/etc/php/conf.d/php.ini
+      - ./images/php/${PHP_VERSION}/conf/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
     tmpfs:
       - /dev/shm
     extra_hosts:
