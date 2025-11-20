@@ -81,19 +81,28 @@ deploy_code() {
     # Check if current release exists and has .git
     if [ -L "$CURRENT_LINK" ] && [ -d "$(readlink -f "$CURRENT_LINK")/.git" ]; then
         CURRENT_RELEASE=$(readlink -f "$CURRENT_LINK")
-        log_info "Cloning from current release: $CURRENT_RELEASE"
 
+        # First, fetch latest changes in CURRENT release
+        log_info "Fetching latest changes in current release..."
+        cd "$CURRENT_RELEASE"
+        REMOTE_URL=$(git config --get remote.origin.url)
+        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        git fetch origin
+
+        log_info "Cloning from current release: $CURRENT_RELEASE"
         # Clone from current release (faster than remote clone)
         git clone "$CURRENT_RELEASE" "$NEW_RELEASE"
 
         cd "$NEW_RELEASE"
 
-        # Fetch and pull latest changes
-        log_info "Fetching latest changes..."
+        # Fix the origin remote to point to the actual remote repository
+        log_info "Resetting origin to: $REMOTE_URL"
+        git remote set-url origin "$REMOTE_URL"
+
+        # Fetch and pull latest changes from the REAL remote
+        log_info "Fetching latest changes from remote repository..."
         git fetch origin
 
-        # Get current branch
-        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
         log_info "Current branch: $CURRENT_BRANCH"
 
         # Pull latest changes
