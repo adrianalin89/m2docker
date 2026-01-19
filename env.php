@@ -92,7 +92,7 @@ return [
             "port" => "5672",
             "user" => "{{project_name}}",
             "password" => "magento",
-            "virtualhost" => "{project_name}}-magento",
+            "virtualhost" => "{{project_name}}-magento",
             "ssl" => false,
             "reconnect_attempts" => 3,
             "connect_timeout" => 5,
