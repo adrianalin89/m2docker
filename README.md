@@ -64,6 +64,7 @@ Install Magento dependencies using Composer. This will install all required pack
 ```bash
 bin/composer install
 ```
+Use `bin\setup-rabbitmq` to setup the project in rabbitmq service.
 
 ### Magento Configuration
 1. Copy the `env.php` file from the root of this project to the `app/etc` folder in the Magento source code. Open it and add the db credentials and other configuration you see fit.
@@ -92,6 +93,7 @@ bin/download community 2.4.7-p3
 or
 bin/download mageos 2
 ```
+Use `bin\setup-rabbitmq` to setup the project in rabbitmq service.
 Use `bin/setup-install` to automatically install it using the information from the env file. This will seed the DB and generate the env.php file.
 
 Use `bin/setup-magento` to add the new domain to hosts file.

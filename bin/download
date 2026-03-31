@@ -12,9 +12,9 @@ bin/setup-composer-auth
 bin/fixowns
 
 if [ "$EDITION" == "mageos" ]; then
-  VERSION=${2:-2.0.0}
+  VERSION=${2:-2.2.1}
   bin/clinotty composer create-project --repository-url=https://repo.mage-os.org/ mage-os/project-community-edition="${VERSION}" .
 else
-  VERSION=${2:-2.4.7-p3}
+  VERSION=${2:-2.4.9}
   bin/clinotty composer create-project --repository=https://repo.magento.com/ magento/project-"${EDITION}"-edition="${VERSION}" .
 fi

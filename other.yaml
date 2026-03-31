@@ -1,0 +1,15 @@
+ {{project_name}}-fluentbit:
+    container_name: {{project_name}}-fluentbit
+    image: fluent/fluent-bit:2.1
+    user: ${USER_ID}:${GROUP_ID}
+    volumes:
+      - ./images/fluentbit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./images/fluentbit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+      - ./:/var/www:ro
+    environment:
+      - PROJECT_NAME=${PROJECT_NAME}
+    networks:
+      - {{project_name}}-network
+      - open-search-network
+    depends_on:
+      - {{project_name}}-php
