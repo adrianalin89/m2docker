@@ -21,7 +21,6 @@ help:
 	@echo "$(call red,===============================)"
 	@echo "$(call format,analyse,'Run [phpstan analyse] within the container to statically analyse code$(comma) passing in directory to analyse.')"
 	@echo "$(call format,bash,'Drop into the bash prompt of your Docker container.')"
-	@echo "$(call format,blackfire,'Disable or enable Blackfire. Accepts argument [disabl]$(comma) [enable]$(comma) or [status].')"
 	@echo "$(call format,cache-clean,'Access the cache-clean CLI.')"
 	@echo "$(call format,check-dependencies,'Provides helpful recommendations for dependencies.')"
 	@echo "$(call format,cli,'Run any CLI command without going into the bash prompt.')"
@@ -29,8 +28,6 @@ help:
 	@echo "$(call format,cliq,'Run any CLI command but pipe all output to /dev/null.')"
 	@echo "$(call format,composer,'Run the composer binary.')"
 	@echo "$(call format,configure-linux,'Adds the Docker container IP address to /etc/hosts if not already present. Optionally enables port 9003 for Xdebug')"
-	@echo "$(call format,copyfromcontainer,'Copy folders or files from container to host.')"
-	@echo "$(call format,copytocontainer,'Copy folders or files from host to container.')"
 	@echo "$(call format,create-user,'Create either an admin user or customer account.')"
 	@echo "$(call format,cron,'Start or stop the cron service.')"
 	@echo "$(call format,debug-cli,'Enable Xdebug for bin/magento$(comma) with an optional argument of the IDE key. Defaults to PHPSTORM.')"
@@ -41,7 +38,6 @@ help:
 	@echo "$(call format,docker-compose,'Support V1 (docker-compose) and V2 (docker compose) docker compose command$(comma) and use custom configuration files.')"
 	@echo "$(call format,docker-stats,'Display status for CPU$(comma) memory usage$(comma) and memory limit of currently-running Docker containers.')"
 	@echo "$(call format,download,'Download & extract specific Magento version to the src directory.')"
-	@echo "$(call format,ece-patches,'Run the Cloud Patches CLI.')"
 	@echo "$(call format,fixowns,'This will fix filesystem ownerships within the container.')"
 	@echo "$(call format,fixperms,'This will fix filesystem permissions within the container.')"
 	@echo "$(call format,grunt,'Run the grunt binary.')"
@@ -49,7 +45,6 @@ help:
 	@echo "$(call format,log,'Monitor the Magento log files. Pass no params to tail all files.')"
 	@echo "$(call format,magento,'Run the Magento CLI.')"
 	@echo "$(call format,magento-version,'Determine the Magento version installed in the current environment..')"
-	@echo "$(call format,mftf,'Run the Magento MFTF.')"
 	@echo "$(call format,mysql,'Run the MySQL CLI with database config from env/db.env.')"
 	@echo "$(call format,mysqldump,'Backup the Magento database.')"
 	@echo "$(call format,n98-magerun2,'Access the n98-magerun2 CLI.')"
@@ -58,21 +53,16 @@ help:
 	@echo "$(call format,phpcbf,'Auto-fix PHP_CodeSniffer errors with Magento2 options.')"
 	@echo "$(call format,phpcs,'Run PHP_CodeSniffer with Magento2 options.')"
 	@echo "$(call format,phpcs-json-report,'Run PHP_CodeSniffer with Magento2 options and save to [report.json] file.')"
-	@echo "$(call format,pwa-studio,'(BETA) Start the PWA Studio server.')"
 	@echo "$(call format,redis,'Run a command from the redis container.')"
 	@echo "$(call format,restart,'Stop and then start all containers.')"
 	@echo "$(call format,root,'Run any CLI command as root without going into the bash prompt.')"
 	@echo "$(call format,rootnotty,'Run any CLI command as root with no TTY.')"
-	@echo "$(call format,setup,'Run the Magento setup process$(comma) with optional domain name.')"
 	@echo "$(call format,setup-composer-auth,'Setup authentication credentials for Composer.')"
 	@echo "$(call format,setup-dcker,'Setup Magento project in Docker.')"
 	@echo "$(call format,setup-magento,'Setup Magento ....')"
 	@echo "$(call format,setup-grunt,'Install and configure Grunt JavaScript task runner.')"
 	@echo "$(call format,setup-install,'Automates the installation process for a Magento instance.')"
 	@echo "$(call format,setup-integration-tests,'Script to set up integration tests.')"
-	@echo "$(call format,setup-pwa-studio,'(BETA) Install PWA Studio.')"
-	@echo "$(call format,setup-pwa-studio-sampledata,'This script makes it easier to install Venia sample data.')"
-	@echo "$(call format,spx,'Disable or enable output compression to enable or disbale SPX.')"
 	@echo "$(call format,start,'Start all containers.')"
 	@echo "$(call format,status,'Check the container status.')"
 	@echo "$(call format,stop,'Stop all project containers.')"
@@ -109,11 +99,7 @@ composer:
 configure-linux:
 	@./bin/configure-linux
 
-copyfromcontainer:
-	@./bin/copyfromcontainer $(call args)
 
-copytocontainer:
-	@./bin/copytocontainer $(call args)
 
 cron:
 	@./bin/cron $(call args)
@@ -163,8 +149,6 @@ magento:
 magento-version:
 	@./bin/magento-version
 
-mftf:
-	@./bin/mftf $(call args)
 
 mysql:
 	@./bin/mysql $(call args)
@@ -190,8 +174,6 @@ phpcs:
 phpcs-json-report:
 	@./bin/phpcs-json-report $(call args)
 
-pwa-studio:
-	@./bin/pwa-studio
 
 redis:
 	@./bin/redis $(call args)
@@ -205,8 +187,6 @@ root:
 rootnotty:
 	@./bin/rootnotty $(call args)
 
-setup:
-	@./bin/setup $(call args)
 
 setup-magento:
 	@./bin/setup-magento
@@ -229,14 +209,7 @@ setup-install:
 setup-integration-tests:
 	@./bin/setup-integration-tests
 
-setup-pwa-studio:
-	@./bin/setup-pwa-studio $(call args)
 
-setup-pwa-studio-sampledata:
-	@./bin/setup-pwa-studio-sampledata $(call args)
-
-spx:
-	@./bin/spx $(call args)
 
 start:
 	@./bin/start $(call args)

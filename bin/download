@@ -1,20 +1,82 @@
 #!/usr/bin/env bash
 
-EDITION=${1:-community}
+if [[ $1 == "-h" || $1 == "--help" ]]; then
+  echo "Usage: bin/download [edition] [version]
+  edition  mageos (default), community, enterprise
+  version  mageos: latest 3.x+ release by default (ex. 3.6.0)
+           community/enterprise: defaults to 2.4.9
+
+Examples:
+  bin/download                    latest Mage-OS (3.0 or newer)
+  bin/download mageos 3.5.0       specific Mage-OS version
+  bin/download community          Magento Open Source 2.4.9
+  bin/download enterprise 2.4.8-p3"
+  exit 0
+fi
+
+EDITION=${1:-mageos}
 
 # Define ANSI escape codes for colors
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-bin/setup-composer-auth
+if [ "$EDITION" == "mageos" ]; then
+  # No version given: let Composer pick the newest stable Mage-OS release
+  # (3.0 or newer) that matches the PHP version of the container.
+  VERSION=${2:->=3.0}
+elif [ "$EDITION" == "community" ] || [ "$EDITION" == "enterprise" ]; then
+  VERSION=${2:-2.4.9}
+else
+  echo "Unknown edition \"$EDITION\". Use mageos, community or enterprise (bin/download --help)."
+  exit 1
+fi
+
+if [ -d "./src" ] && [ -n "$(ls -A ./src)" ]; then
+  echo "Error: The \"src\" directory is not empty. Please remove all contents within this directory and try again."
+  exit 1
+fi
+
+if [ -z "$(bin/docker-compose ps --status running -q {{project_name}}-php)" ]; then
+  echo "Error: The {{project_name}}-php container is not running. Run bin/start first."
+  exit 1
+fi
 
 bin/fixowns
 
 if [ "$EDITION" == "mageos" ]; then
-  VERSION=${2:-2.2.1}
+  echo -e "${BLUE}Downloading Mage-OS ${YELLOW}${VERSION}${BLUE} from repo.mage-os.org...${NC}"
   bin/clinotty composer create-project --repository-url=https://repo.mage-os.org/ mage-os/project-community-edition="${VERSION}" .
 else
-  VERSION=${2:-2.4.9}
+  # Only repo.magento.com needs authentication keys
+  bin/setup-composer-auth || exit 1
+
+  echo -e "${BLUE}Downloading Magento ${EDITION} ${YELLOW}${VERSION}${BLUE} from repo.magento.com...${NC}"
   bin/clinotty composer create-project --repository=https://repo.magento.com/ magento/project-"${EDITION}"-edition="${VERSION}" .
 fi
+
+if [ $? != 0 ]; then
+  echo -e "${BLUE}Download failed. Make sure ${YELLOW}src/${BLUE} is empty and that the PHP version in .env is supported by this release.${NC}"
+  exit 1
+fi
+
+if [ "$EDITION" != "mageos" ]; then
+  # Keep the repo.magento.com keys inside the project for setup:install / sample data
+  bin/clinotty bash -c '[ -f ./var/composer_home/auth.json ] || { mkdir -p ./var/composer_home && cp "$(composer config --global home)/auth.json" ./var/composer_home/auth.json; }'
+fi
+
+if [ "$EDITION" == "mageos" ]; then
+  PRODUCT="mage-os/product-community-edition"
+else
+  PRODUCT="magento/product-${EDITION}-edition"
+fi
+INSTALLED=$(bin/clinotty composer show "$PRODUCT" 2>/dev/null | grep -E '^versions' | awk '{print $NF}')
+
+# Our .gitignore replaces the one shipped by create-project
+if [ -f .gitignore.sample_magento ]; then
+  cp .gitignore.sample_magento src/.gitignore
+  echo -e "${BLUE}Copied ${YELLOW}.gitignore.sample_magento${BLUE} to src/.gitignore${NC}"
+fi
+
+echo -e "${BLUE}Done. Installed ${YELLOW}${EDITION} ${INSTALLED}${BLUE} in src/.${NC}"
+echo -e "${BLUE}Bitbucket deploy pipeline: copy ${YELLOW}bitbucket-pipelines.yml.sample${BLUE} to src/bitbucket-pipelines.yml and see its header.${NC}"

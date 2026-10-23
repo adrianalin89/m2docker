@@ -8,6 +8,17 @@ fi
 
 COMPOSE_FILES=("compose.yaml")
 
+# WEB_SERVER=frankenphp in .env swaps nginx + php-fpm for the FrankenPHP image.
+WEB_SERVER=$(grep -E '^WEB_SERVER=' .env 2>/dev/null | cut -d '=' -f2)
+if [ "$WEB_SERVER" == "frankenphp" ]; then
+  COMPOSE_FILES+=("compose.frankenphp.yaml")
+fi
+
+# Project specific changes that survive bin/update
+if [ -f "compose.override.yaml" ]; then
+  COMPOSE_FILES+=("compose.override.yaml")
+fi
+
 # Loop over the list of compose files, and prefix them with -f.
 # This ensures paths with spaces aren't split when passed as parameters.
 COMPOSE_FILES_PREFIXED=()

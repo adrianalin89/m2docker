@@ -1,0 +1,98 @@
+# Bitbucket Pipelines for a project running on m2docker.
+# Copy it to the root of the project repository (src/) as bitbucket-pipelines.yml.
+#
+# How it works: every step runs on our self-hosted runner "magento" (staging
+# server, fixed IP). The deploy step connects over ssh from there to the target
+# server and runs bin/pipeline in the m2docker project, which reads
+# DEPLOY_BRANCH, DEPLOY_TYPE, ... from that server's .env, deploys, and runs
+# bin/health-check. Its output is shown in the pipeline log, any failure fails
+# the pipeline. Client servers only have to allow ssh from the runner's IP.
+#
+#   stage   push / merge into `stage`: checks, then deploy to staging automatically
+#   master  push / merge into `master`: checks, then the production deploy waits
+#           for a manual Run (Bitbucket doesn't allow a manual first step, the
+#           checks step is the first one)
+#   custom  "deploy-staging" / "deploy-production" from Pipelines > Run pipeline,
+#           ex. to redeploy without a new commit
+#
+# Setup in Bitbucket:
+#   - Workspace or repository variable SSH_PRIVATE_KEY_NEW (secured): our common
+#     deploy key, base64 encoded. Its public key must be in ~/.ssh/authorized_keys
+#     of the deploy user on every target server.
+#   - Repository settings > Deployments, for Staging and Production:
+#       DEPLOY_SERVER  target server host or IP
+#       DEPLOY_USER    ssh user (must be in the docker group)
+#       DEPLOY_PORT    ssh port, ex. 22
+#       DEPLOY_PATH    m2docker project root on the server, ex. /var/www/docker/<project>
+#   - On each server: DEPLOY_BRANCH (stage / master) and DEPLOY_TYPE in .env,
+#     check with: bin/pipeline --dry-run
+#
+# For a client whose servers are only reachable from inside their network, use
+# their own runner label in runs-on instead of "magento".
+
+definitions:
+  steps:
+    - step: &checks
+        name: Magento checks
+        runs-on:
+          - magento
+        image: composer:2
+        script:
+          # Merge conflict markers left in the code
+          - "! git grep -nE '^(<<<<<<<|>>>>>>>)( |$)' -- app composer.json"
+          # composer.json is valid and composer.lock is in sync with it
+          - composer validate --no-check-publish --no-check-all
+          # PHP syntax of the project code and of app/etc/config.php
+          - |
+            ERRORS=$(find app/code app/design app/etc/config.php -type f \( -name '*.php' -o -name '*.phtml' \) -print0 2>/dev/null \
+              | xargs -0 -r -n 50 -P 4 php -l 2>&1 | grep -v '^No syntax errors detected' || true)
+            if [ -n "$ERRORS" ]; then echo "$ERRORS"; exit 1; fi
+            echo "PHP syntax OK"
+          # Optional, Magento coding standard on our modules:
+          #- composer global require --no-interaction magento/magento-coding-standard
+          #- ~/.composer/vendor/bin/phpcs --standard=Magento2 --severity=10 --extensions=php,phtml app/code
+
+    - step: &deploy
+        name: Deploy
+        runs-on:
+          - magento
+        script:
+          - pipe: atlassian/ssh-run:0.8.1
+            variables:
+              SSH_USER: $DEPLOY_USER
+              SERVER: $DEPLOY_SERVER
+              PORT: $DEPLOY_PORT
+              SSH_KEY: $SSH_PRIVATE_KEY_NEW
+              COMMAND: "$DEPLOY_PATH/bin/pipeline"
+
+pipelines:
+  branches:
+    stage:
+      - step: *checks
+      - step:
+          <<: *deploy
+          name: Deploy to staging
+          deployment: Staging
+
+    master:
+      - step: *checks
+      - step:
+          <<: *deploy
+          name: Deploy to production
+          deployment: Production
+          trigger: manual
+
+  custom:
+    deploy-staging:
+      - step: *checks
+      - step:
+          <<: *deploy
+          name: Deploy to staging
+          deployment: Staging
+
+    deploy-production:
+      - step: *checks
+      - step:
+          <<: *deploy
+          name: Deploy to production
+          deployment: Production

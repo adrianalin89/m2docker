@@ -1,10 +1,104 @@
 #!/usr/bin/env bash
-bin/composer install
-bin/magento maintenance:enable
-bin/cli rm -rf generated/code var/view_preprocessed
-bin/magento cache:flush
-bin/magento setup:upgrade
-bin/magento setup:di:compile
-bin/magento setup:static-content:deploy en_US "$@" -f
-bin/magento maintenance:disable
-bin/magento cache:flush
+# Simple (in place) deployment of src/, configured from .env (DEPLOY_*).
+#
+# Usage:
+#   bin/deploy [extra locales...]      ex. bin/deploy ro_RO
+#   bin/deploy --no-git                skip fetching/pulling DEPLOY_BRANCH
+#
+# Steps: maintenance on -> git pull DEPLOY_BRANCH -> composer install -> clean
+# generated -> di:compile -> Tailwind build-prod -> setup:upgrade -> static
+# content deploy -> maintenance off -> cache flush.
+#
+# If a step fails the deploy stops and maintenance mode is left ON, so a half
+# deployed shop is never served. Fix the issue and run bin/deploy again, or
+# bin/magento maintenance:disable to go back online.
+
+. "$(dirname "$0")/../lib/deploy.sh"
+cd "$PROJECT_ROOT" || exit 1
+load_deploy_env
+
+USE_GIT=1
+EXTRA_LOCALES=()
+for arg in "$@"; do
+  case "$arg" in
+    --no-git) USE_GIT=0 ;;
+    *) EXTRA_LOCALES+=("$arg") ;;
+  esac
+done
+LOCALES="$DEPLOY_LOCALES ${EXTRA_LOCALES[*]}"
+
+magento() { in_container src "bin/magento $*"; }
+
+git_preflight() {
+  if [ -n "$(git -C src status --porcelain --untracked-files=no)" ]; then
+    log_error "src/ has uncommitted changes, refusing to pull:"
+    git -C src status --short --untracked-files=no
+    return 1
+  fi
+}
+
+git_update() {
+  git -C src fetch origin "$DEPLOY_BRANCH" &&
+    git -C src checkout "$DEPLOY_BRANCH" &&
+    git -C src pull --ff-only origin "$DEPLOY_BRANCH" &&
+    git -C src log -1 --format='Now at %h %s (%an, %ar)'
+}
+
+maintenance_on() {
+  if [ "$DEPLOY_MAINTENANCE" = "1" ]; then
+    magento maintenance:enable
+  else
+    log_info "DEPLOY_MAINTENANCE=0, staying online."
+  fi
+}
+
+maintenance_off() {
+  [ "$DEPLOY_MAINTENANCE" = "1" ] && magento maintenance:disable
+  return 0
+}
+
+tailwind() {
+  if [ "$DEPLOY_TAILWIND" = "1" ]; then
+    build_tailwind src
+  else
+    log_info "DEPLOY_TAILWIND=0, skipping."
+  fi
+}
+
+on_error() {
+  echo ""
+  log_error "Deployment FAILED at step $STEP_NO."
+  [ "$DEPLOY_MAINTENANCE" = "1" ] && log_warn "Maintenance mode is still ON (bin/magento maintenance:disable to go back online)."
+  exit 1
+}
+
+STARTED=$SECONDS
+echo -e "${BLUE}🚀 Simple deploy of ${PROJECT_NAME} (branch: ${DEPLOY_BRANCH:-current}, locales: ${LOCALES})${NC}"
+
+if [ "$USE_GIT" = "1" ] && [ -z "$DEPLOY_BRANCH" ]; then
+  log_warn "DEPLOY_BRANCH is not set in .env, deploying the checked out code as is."
+  USE_GIT=0
+fi
+
+step "Check php container" check_php_container || exit 1
+if [ "$USE_GIT" = "1" ]; then
+  step "Check src/ git working tree" git_preflight || exit 1
+fi
+step "Enable maintenance mode" maintenance_on || on_error
+if [ "$USE_GIT" = "1" ]; then
+  step "Update code from git ($DEPLOY_BRANCH)" git_update || on_error
+fi
+step "Show deploy mode" magento deploy:mode:show || on_error
+step "Composer install ${DEPLOY_COMPOSER_ARGS}" in_container src "composer install --no-interaction ${DEPLOY_COMPOSER_ARGS}" || on_error
+step "Clean generated files" in_container src "rm -rf generated/code generated/metadata var/view_preprocessed var/cache var/page_cache" || on_error
+step "Flush cache" magento cache:flush || on_error
+step "Compile dependency injection" magento setup:di:compile || on_error
+step "Build Tailwind (Hyvä) themes" tailwind || on_error
+step "Database upgrade" magento setup:upgrade --keep-generated || on_error
+step "Deploy static content (${LOCALES})" magento setup:static-content:deploy -f $LOCALES || on_error
+step "Disable maintenance mode" maintenance_off || on_error
+step "Flush cache" magento cache:flush || on_error
+
+echo ""
+echo -e "${GREEN}🎉 Deployment of ${PROJECT_NAME} completed in $((SECONDS - STARTED))s${NC}"
+git -C src log -1 --format="   Commit: %h %s (%an)" 2>/dev/null

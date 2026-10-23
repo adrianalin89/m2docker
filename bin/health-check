@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# Minimal Magento health check, run by bin/pipeline after every deploy (and
+# usable on its own). Read only, it changes nothing.
+#
+#   ✅ ok   ⚠️  warning (reported, doesn't fail)   ❌ error (exit code 1)
+#
+# Checks: php container running, maintenance mode off, database schema/data up
+# to date (setup:db:status), storefront answers 200 through the project web
+# container, invalid indexers, cron running inside the php container.
+#
+# Usage: bin/health-check
+
+. "$(dirname "$0")/../lib/deploy.sh"
+cd "$PROJECT_ROOT" || exit 1
+load_deploy_env
+
+ERRORS=0
+WARNINGS=0
+fail() { log_error "$1"; ERRORS=$((ERRORS + 1)); }
+warn() { log_warn "$1"; WARNINGS=$((WARNINGS + 1)); }
+
+echo -e "${BLUE}🩺 Health check ${PROJECT_NAME}${NC}"
+
+if ! check_php_container; then
+  exit 1
+fi
+log_ok "Container ${PHP_CONTAINER} is running"
+
+# Maintenance mode
+if in_container src "test -f var/.maintenance.flag"; then
+  fail "Maintenance mode is ON (bin/magento maintenance:disable)"
+else
+  log_ok "Maintenance mode is off"
+fi
+
+# Database schema / data patches
+if DB_STATUS=$(in_container src "bin/magento setup:db:status --no-ansi" 2>&1); then
+  log_ok "Database is up to date"
+else
+  fail "Database is not up to date: $(echo "$DB_STATUS" | tail -n 1)"
+fi
+
+# Storefront through the project web server (nginx container, or the php
+# container itself when it runs FrankenPHP), as nginx-proxy would call it.
+BASE_URL=$(in_container src "bin/magento config:show web/secure/base_url 2>/dev/null")
+DOMAIN=$(echo "$BASE_URL" | sed -E 's#^https?://([^/]+).*#\1#')
+if [ "$(env_value WEB_SERVER)" = "frankenphp" ]; then
+  WEB_URL="http://${PROJECT_NAME}-php:8080/"
+  WEB_CONTAINER="${PROJECT_NAME}-php"
+else
+  WEB_URL="http://${PROJECT_NAME}-nginx/"
+  WEB_CONTAINER="${PROJECT_NAME}-nginx"
+fi
+if [ -z "$DOMAIN" ]; then
+  warn "Could not read web/secure/base_url, storefront not checked"
+else
+  # Run curl from the web container itself, it is reachable from there on any setup
+  HTTP=$(docker exec "$WEB_CONTAINER" sh -c "command -v curl >/dev/null && curl -s -o /dev/null -w '%{http_code} %{time_total}' -H 'Host: $DOMAIN' -H 'X-Forwarded-Proto: https' --max-time 60 '${WEB_URL/${WEB_CONTAINER}/127.0.0.1}'" 2>/dev/null)
+  if [ -z "$HTTP" ]; then
+    HTTP=$(docker exec "$PHP_CONTAINER" curl -s -o /dev/null -w '%{http_code} %{time_total}' -H "Host: $DOMAIN" -H 'X-Forwarded-Proto: https' --max-time 60 "$WEB_URL" 2>/dev/null)
+  fi
+  CODE=${HTTP%% *}
+  TIME=${HTTP##* }
+  case "$CODE" in
+    200) log_ok "Storefront https://$DOMAIN/ answers 200 (${TIME}s)" ;;
+    3??) warn "Storefront https://$DOMAIN/ answers $CODE (redirect)" ;;
+    *) fail "Storefront https://$DOMAIN/ answers ${CODE:-nothing}" ;;
+  esac
+fi
+
+# Indexers
+INVALID=$(in_container src "bin/magento indexer:status --no-ansi" 2>/dev/null | grep -iE "reindex required|invalid" | awk -F'|' '{print $3}' | xargs)
+if [ -n "$INVALID" ]; then
+  warn "Indexers need a reindex: $INVALID"
+else
+  log_ok "Indexers are valid"
+fi
+
+# Cron
+if docker exec "$PHP_CONTAINER" pgrep -x cron >/dev/null 2>&1; then
+  log_ok "Cron is running"
+else
+  warn "Cron is not running in ${PHP_CONTAINER}"
+fi
+
+echo ""
+if [ "$ERRORS" -gt 0 ]; then
+  log_error "Health check failed: $ERRORS error(s), $WARNINGS warning(s)"
+  exit 1
+fi
+log_ok "Health check passed ($WARNINGS warning(s))"

@@ -17,4 +17,3 @@ if [[ ! -f "src/${MYSQL_INTEGRATION_CONFIG}" ]]; then
   cp template/"${MYSQL_INTEGRATION_CONFIG}"."${MAGENTO_MAJOR}".dist src/${MYSQL_INTEGRATION_CONFIG}
 fi
 
-bin/copytocontainer ${MYSQL_INTEGRATION_CONFIG}

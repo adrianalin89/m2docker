@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Entry point for CI (Bitbucket pipelines) deployments.
+#
+# The pipeline only has to run this script over SSH, ex:
+#   COMMAND: "/var/www/docker/<project>/bin/pipeline"
+#
+# Everything else comes from the project .env:
+#   DEPLOY_TYPE   simple   -> bin/deploy (git pull in src/, maintenance mode)
+#                 releases -> bin/deploy-releases (new release folder, zero downtime)
+#   DEPLOY_BRANCH branch deployed on this server (stage, master, ...)
+#   + DEPLOY_LOCALES, DEPLOY_MAINTENANCE, DEPLOY_COMPOSER_ARGS, DEPLOY_TAILWIND, DEPLOY_KEEP_RELEASES
+#
+# Usage:
+#   bin/pipeline              deploy with the .env settings
+#   bin/pipeline <branch>     deploy another branch once (overrides DEPLOY_BRANCH)
+#   bin/pipeline --dry-run    only print what would be deployed
+#
+# After a successful deploy bin/health-check runs; the exit code is the one of
+# the deploy or of the health check, so either failing fails the pipeline.
+
+. "$(dirname "$0")/../lib/deploy.sh"
+cd "$PROJECT_ROOT" || exit 1
+
+DRY_RUN=0
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=1 ;;
+    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) export DEPLOY_BRANCH="$arg" ;;
+  esac
+done
+
+load_deploy_env
+
+if [ -z "$PROJECT_NAME" ]; then
+  log_error "PROJECT_NAME missing, is $ENV_FILE present?"
+  exit 1
+fi
+
+case "$DEPLOY_TYPE" in
+  simple) DEPLOY_CMD="bin/deploy" ;;
+  releases) DEPLOY_CMD="bin/deploy-releases" ;;
+  *)
+    log_error "Unknown DEPLOY_TYPE \"$DEPLOY_TYPE\" (use simple or releases)."
+    exit 1
+    ;;
+esac
+
+echo -e "${BLUE}============================================${NC}"
+echo -e "${BLUE}  Deploy ${PROJECT_NAME}${NC}"
+echo -e "${BLUE}============================================${NC}"
+echo "  Host:        $(hostname)"
+echo "  Directory:   $PROJECT_ROOT"
+echo "  Started:     $(date '+%F %T %Z')"
+echo "  Type:        $DEPLOY_TYPE ($DEPLOY_CMD)"
+echo "  Branch:      ${DEPLOY_BRANCH:-<checked out branch>}"
+echo "  Locales:     $DEPLOY_LOCALES"
+echo "  Maintenance: $DEPLOY_MAINTENANCE   Tailwind: $DEPLOY_TAILWIND   Composer args: ${DEPLOY_COMPOSER_ARGS:-<none>}"
+if [ -d src/.git ] || [ -e src/.git ]; then
+  echo "  Deployed:    $(git -C src log -1 --format='%h %s (%an, %ar)' 2>/dev/null)"
+fi
+echo ""
+bin/status
+
+if [ "$DRY_RUN" = "1" ]; then
+  echo ""
+  log_info "Dry run, nothing was deployed. Would run: $DEPLOY_CMD"
+  exit 0
+fi
+
+echo ""
+"$DEPLOY_CMD"
+RC=$?
+
+# Post deploy checks, a failing check fails the pipeline
+if [ $RC -eq 0 ]; then
+  echo ""
+  bin/health-check
+  RC=$?
+fi
+
+echo ""
+if [ $RC -eq 0 ]; then
+  log_ok "Pipeline deploy finished at $(date '+%F %T %Z')"
+else
+  log_error "Pipeline deploy failed (exit $RC) at $(date '+%F %T %Z')"
+fi
+exit $RC

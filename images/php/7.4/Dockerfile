@@ -105,7 +105,6 @@ RUN docker-php-ext-configure \
 RUN curl -sS https://getcomposer.org/installer | \
   php -- --install-dir=/usr/local/bin --filename=composer
 
-COPY conf/spx.ini $PHP_INI_DIR/conf.d/spx.ini
 COPY conf/msmtprc /etc/msmtprc
 
 RUN apt-get update && apt-get install -y supervisor

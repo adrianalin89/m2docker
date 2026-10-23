@@ -1,2 +1,40 @@
 #!/usr/bin/env bash
-bin/cli npm --prefix app/design/frontend/{{project_name}}/base/web/tailwind "$@"
+# Compile Tailwind styles for every Hyva theme in this project that has a
+# web/tailwind/package.json. Looks under both:
+#   - app/design/frontend/*/*/web/tailwind/   (theme packages)
+#   - app/code/*/*/web/tailwind/              (theme registered as a module)
+#
+# Arguments are passed through to npm.
+#
+# Usage:
+#   bin/tailwind                  # runs `npm run build` in each theme
+#   bin/tailwind run watch        # runs `npm run watch` in each theme
+#   bin/tailwind install          # runs `npm install` in each theme
+#   bin/tailwind ci               # runs `npm ci` in each theme
+
+set -e
+
+if [ "$#" -eq 0 ]; then
+    NPM_ARGS=(run build)
+else
+    NPM_ARGS=("$@")
+fi
+
+THEMES=$(bin/clinotty bash -lc '
+    {
+        find app/design/frontend -mindepth 5 -maxdepth 5 -type f -path "*/web/tailwind/package.json" 2>/dev/null
+        find app/code           -mindepth 5 -maxdepth 5 -type f -path "*/web/tailwind/package.json" 2>/dev/null
+    } | sed "s|/package.json$||" | sort -u
+')
+
+if [ -z "$THEMES" ]; then
+    echo "No themes with web/tailwind/package.json found."
+    exit 1
+fi
+
+while IFS= read -r THEME_DIR; do
+    [ -z "$THEME_DIR" ] && continue
+    echo ""
+    echo "==> Tailwind (${NPM_ARGS[*]}) for $THEME_DIR"
+    bin/clinotty npm --prefix "$THEME_DIR" "${NPM_ARGS[@]}" </dev/null
+done <<< "$THEMES"

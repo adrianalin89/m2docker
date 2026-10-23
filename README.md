@@ -24,12 +24,18 @@ The projects containers consist of:
 ### Project Structure
 ```
 project-root/
-├── bin/           # Project management scripts
-├── src/           # Magento source code
-├── Makefile       # CLI commands
-├── docker-compose.yml
-├── env.php        # Magento configuration
-└── .env           # Project configuration
+├── bin/                      # Project management scripts (bin/magento, bin/composer, bin/deploy, ...)
+├── lib/                      # Shared script helpers and the requirements table (versions.tsv)
+├── images/                   # Docker build contexts and configs (nginx, php/<version>, frankenphp)
+├── scripts/                  # Optional scripts, ex. db-backup.sh
+├── src/                      # Magento / Mage-OS source code (its own git repository)
+├── compose.yaml              # Project services: nginx, php, db, redis
+├── compose.frankenphp.yaml   # FrankenPHP variant (WEB_SERVER=frankenphp)
+├── env.php                   # Magento app/etc/env.php template
+├── .gitignore.sample_magento # copied to src/.gitignore by bin/download
+├── bitbucket-pipelines.yml.sample
+├── Makefile                  # CLI commands
+└── .env                      # Project configuration (from .env.sample)
 ```
 ### Project Configuration
 Copy the `.env.sample` to `.env` and edit the file:
@@ -86,12 +92,13 @@ bin/magento setup:upgrade
 ```
 
 ### Setup new empty magento project
-After starting the container and editing the `.env` file you will have to download the version of Magento that you want to use.
+After starting the container and editing the `.env` file you will have to download the version of Magento that you want to use. `src/` must be empty.
 
 ```
-bin/download community 2.4.7-p3
-or
-bin/download mageos 2
+bin/download                      # latest Mage-OS release (3.0 or newer), default
+bin/download mageos 3.5.0         # specific Mage-OS version
+bin/download community            # Magento Open Source 2.4.9 (needs repo.magento.com keys)
+bin/download enterprise 2.4.8-p3  # Adobe Commerce
 ```
 Use `bin\setup-rabbitmq` to setup the project in rabbitmq service.
 Use `bin/setup-install` to automatically install it using the information from the env file. This will seed the DB and generate the env.php file.
@@ -105,28 +112,26 @@ At this point you should have a working Magento 2 project running on your server
 
 ## CLI Commands
 - `bin/analyse`: Run `phpstan analyse` within the container to statically analyse code, passing in directory to analyse. Ex. `bin/analyse app/code`
-- `bin/bash`: Drop into the bash prompt of your Docker container. The `phpfpm` container should be mainly used to access the filesystem within Docker.
-- `bin/blackfire`: Disable or enable Blackfire. Accepts argument `disable`, `enable`, or `status`. Ex. `bin/blackfire enable`
+- `bin/bash`: Drop into the bash prompt of the `{{project_name}}-php` container.
 - `bin/cache-clean`: Access the [cache-clean](https://github.com/mage2tv/magento-cache-clean) CLI. Note the watcher is automatically started at startup in `bin/start`. Ex. `bin/cache-clean config full_page`
-- `bin/check-dependencies`: Provides helpful recommendations for dependencies tailored to the chosen Magento version.
+- `bin/check-dependencies`: Compare this project (version from `src/composer.lock`) with the official requirements: PHP, Composer, MariaDB, cache image and the shared OpenSearch / RabbitMQ. Ex. `bin/check-dependencies`, `bin/check-dependencies mageos 3.6.0`, `bin/check-dependencies --list`
 - `bin/cli`: Run any CLI command without going into the bash prompt. Ex. `bin/cli ls`
 - `bin/clinotty`: Run any CLI command with no TTY. Ex. `bin/clinotty chmod u+x bin/magento`
 - `bin/cliq`: The same as `bin/cli`, but pipes all output to `/dev/null`. Useful for a quiet CLI, or implementing long-running processes.
 - `bin/composer`: Run the composer binary. Ex. `bin/composer install`
 - `bin/configure-linux`: Adds the Docker container's IP address to the system's `/etc/hosts` file if it's not already present. Additionally, it prompts the user to open port 9003 for Xdebug if desired.
-- `bin/copyfromcontainer`: Copy folders or files from container to host. Ex. `bin/copyfromcontainer vendor`
-- `bin/copytocontainer`: Copy folders or files from host to container. Ex. `bin/copytocontainer --all`
 - `bin/create-user`: Create either an admin user or customer account.
 - `bin/cron`: Start or stop the cron service. Ex. `bin/cron start`
 - `bin/debug-cli`: Enable Xdebug for bin/magento, with an optional argument of the IDE key. Defaults to PHPSTORM Ex. `bin/debug-cli enable PHPSTORM`
-- `bin/deploy`: Runs the standard Magento deployment process commands. Pass extra locales besides `en_US` via an optional argument. Ex. `bin/deploy nl_NL`
+- `bin/deploy`: In place deployment of `src/` configured by the `DEPLOY_*` variables in `.env` (git pull of `DEPLOY_BRANCH`, maintenance, composer, di:compile, Tailwind, setup:upgrade, static content). Extra locales can be passed as arguments, `--no-git` skips the pull. Ex. `bin/deploy ro_RO`
+- `bin/health-check`: Read only post deploy check: maintenance off, `setup:db:status`, storefront answers 200, invalid indexers, cron running. Exit code 1 on errors.
+- `bin/pipeline`: Entry point for CI deployments, runs `bin/deploy` or `bin/deploy-releases` depending on `DEPLOY_TYPE`, then `bin/health-check`. Ex. `bin/pipeline`, `bin/pipeline --dry-run`, `bin/pipeline hotfix-branch`
 - `bin/dev-test-run`: Facilitates running PHPUnit tests for a specified test type (e.g., integration). It expects the test type as the first argument and passes any additional arguments to PHPUnit, allowing for customization of test runs. If no test type is provided, it prompts the user to specify one before exiting.
 - `bin/dev-urn-catalog-generate`: Generate URN's for PhpStorm and remap paths to local host. Restart PhpStorm after running this command.
 - `bin/devconsole`: Alias for `bin/n98-magerun2 dev:console`
-- `bin/docker-compose`: Support V1 (`docker-compose`) and V2 (`docker compose`) docker compose command, and use custom configuration files, such as `compose.yml` and `compose.dev.yml`
+- `bin/docker-compose`: Support V1 (`docker-compose`) and V2 (`docker compose`) docker compose command with `compose.yaml` (+ `compose.frankenphp.yaml` when `WEB_SERVER=frankenphp`).
 - `bin/docker-stats`: Display container name and container ID, status for CPU, memory usage(in MiB and %), and memory limit of currently-running Docker containers.
-- `bin/download`: Download specific Magento version from Composer to the container, with optional arguments of the type ("community" [default], "enterprise", or "mageos") and version ([default] is defined in `bin/download`). Ex. `bin/download mageos` or `bin/download enterprise 2.4.7-p3`
-- `bin/ece-patches`: Run the Cloud Patches CLI. Ex: `bin/ece-tools apply`
+- `bin/download`: Download Mage-OS or Magento into `src/` with Composer (and copy `.gitignore.sample_magento` to `src/.gitignore`), with optional arguments of the edition ("mageos" [default], "community" or "enterprise") and version (Mage-OS defaults to the latest 3.x+ release, Magento to 2.4.9). Ex. `bin/download` or `bin/download enterprise 2.4.8-p3`. See `bin/download --help`.
 - `bin/fixowns`: This will fix filesystem ownerships within the container.
 - `bin/fixperms`: This will fix filesystem permissions within the container.
 - `bin/grunt`: Run the grunt binary. Ex. `bin/grunt exec`
@@ -134,7 +139,6 @@ At this point you should have a working Magento 2 project running on your server
 - `bin/log`: Monitor the Magento log files. Pass no params to tail all files. Ex. `bin/log debug.log`
 - `bin/magento`: Run the Magento CLI. Ex: `bin/magento cache:flush`
 - `bin/magento-version`: Determine the Magento version installed in the current environment.
-- `bin/mftf`: Run the Magento MFTF. Ex: `bin/mftf build:project`
 - `bin/mysql`: Run the MySQL CLI with database config from `env/db.env`. Ex. `bin/mysql -e "EXPLAIN core_config_data"` or`bin/mysql < magento.sql`
 - `bin/mysqldump`: Backup the Magento database. Ex. `bin/mysqldump > magento.sql`
 - `bin/n98-magerun2`: Access the [n98-magerun2](https://github.com/netz98/n98-magerun2) CLI. Ex: `bin/n98-magerun2 dev:console`
@@ -143,32 +147,30 @@ At this point you should have a working Magento 2 project running on your server
 - `bin/phpcbf`: Auto-fix PHP_CodeSniffer errors with Magento2 options. Ex. `bin/phpcbf <path-to-extension>`
 - `bin/phpcs`: Run PHP_CodeSniffer with Magento2 options. Ex. `bin/phpcs <path-to-extension>`
 - `bin/phpcs-json-report`: Run PHP_CodeSniffer with Magento2 options and save to `report.json` file. Ex. `bin/phpcs-json-report <path-to-extension>`
-- `bin/pwa-studio`: (BETA) Start the PWA Studio server. Note that Chrome will throw SSL cert errors and not allow you to view the site, but Firefox will.
 - `bin/redis`: Run a command from the redis container. Ex. `bin/redis redis-cli monitor`
 - `bin/restart`: Stop and then start all containers.
 - `bin/root`: Run any CLI command as root without going into the bash prompt. Ex `bin/root apt-get install nano`
-- `bin/rootnotty`: Run any CLI command as root with no TTY. Ex `bin/rootnotty chown -R app:app /var/www/html`
-- `bin/setup`: Run the Magento setup process to install Magento from the source code, with optional domain name. Defaults to `{{project_name}}.test`. Ex. `bin/setup {{project_name}}.test`
+- `bin/rootnotty`: Run any CLI command as root with no TTY. Ex `bin/rootnotty chown -R www-data:www-data /var/www/src/var`
 - `bin/setup-composer-auth`: Setup authentication credentials for Composer.
-- `bin/setup-dcker` : Setup Magento project in Docker.
-- `bin/setup-magento` : Setup Magento ....
+- `bin/setup-docker`: Replace the `{{project_name}}` placeholder in the boilerplate files with `PROJECT_NAME` from `.env`. Run it once, before `src/` exists.
+- `bin/setup-magento`: Add `DOMAIN_HOSTS` to `/etc/hosts` and set the Magento base URLs to `https://DOMAIN_HOSTS/`.
 - `bin/setup-grunt`: Install and configure Grunt JavaScript task runner to compile .less files
+- `bin/setup-ecomscan`: Install the eComscan security scanner in the php container (daily scan from cron at 02:00, see `ECOMSCAN_*` in `.env`).
+- `bin/setup-rabbitmq`: Create this project's vhost and user (`RABBITMQ_DEFAULT_VHOST` / `RABBITMQ_DEFAULT_USER` from `.env`) in the shared RabbitMQ.
 - `bin/setup-install`: Automates the installation process for a Magento instance.
 - `bin/setup-integration-tests`: Script to set up integration tests.
-- `bin/setup-pwa-studio`: (BETA) Install PWA Studio (requires NodeJS and Yarn to be installed on the host machine). Pass in your base site domain, otherwise the default `master-7rqtwti-mfwmkrjfqvbjk.us-4.magentosite.cloud` will be used. Ex: `bin/setup-pwa-studio {{project_name}}.test`.
-- `bin/setup-pwa-studio-sampledata`: This script makes it easier to install Venia sample data. Pass in your base site domain, otherwise the default `master-7rqtwti-mfwmkrjfqvbjk.us-4.magentosite.cloud` will be used. Ex: `bin/setup-pwa-studio-sampledata {{project_name}}.test`.
-- `bin/spx`: Disable or enable output compression to enable or disbale SPX. Accepts params `disable` (default) or `enable`. Ex. `bin/spx enable`
 - `bin/start`: Start all containers, good practice to use this instead of `docker-compose up -d`, as it may contain additional helpers.
 - `bin/status`: Check the container status.
 - `bin/stop`: Stop all project containers.
+- `bin/tailwind`: Run npm in every Hyvä theme with `web/tailwind/package.json`. Ex. `bin/tailwind` (build), `bin/tailwind run watch`, `bin/tailwind install`
 - `bin/test/unit`: Run unit tests for a specific path. Ex. `bin/test/unit my-dir`
 - `bin/test/unit-coverage`: Generate unit tests coverage reports, saved to the folder `dev/tests/unit/report`. Ex. `bin/test/unit-coverage my-dir`
 - `bin/test/unit-xdebug`: Run unit tests with Xdebug. Ex. `bin/test/unit-xdebug my-dir`
-- `bin/update`: Update your project to the most recent version of `docker-magento`.
+- `bin/update`: Update the boilerplate files of this project from `adrianalin89/m2docker` master, with `--dry-run` / `--diff` and confirmation. See "Updating the boilerplate".
 - `bin/xdebug`: Disable or enable Xdebug. Accepts argument `disable`, `enable`, or `status`. Ex. `bin/xdebug enable`
 - `bin/migrate-to-releases`: Migrate folder structure for 0DownTime Deploy.
-- `bin/deploy-releases`: Deploys the project in a separated folder and generates a release file.
-- `bin/roll-back`: Roll back to a previous release.
+- `bin/deploy-releases`: Zero downtime deployment of `DEPLOY_BRANCH` into a new `releases/` folder, switched atomically when ready (keeps `DEPLOY_KEEP_RELEASES`).
+- `bin/rollback`: Roll back to a previous release.
 
 > [!IMPORTANT]
 >
@@ -177,12 +179,81 @@ At this point you should have a working Magento 2 project running on your server
 > Not all commands are tested and may require adjustments for your project, the repo is still in development and will be updated with more features and commands.
 
 
-# TO DO
-#### de facut documentatia mai clara pentru tipul de certificare
+Open points are tracked in [TODO.md](TODO.md).
 
+### SSL certificates
+TLS is terminated by [nginx-proxy](https://github.com/adrianalin89/nginx-proxy), the project containers only speak HTTP. The certificate type is chosen in the nginx-proxy `.env` with `COMPOSE_PROFILES`; this project only declares its domains (`DOMAIN_HOSTS`, `DOMAIN_EMAIL`), which become `VIRTUAL_HOST`, `SELF_SIGNED_HOST` and `LETSENCRYPT_HOST` / `LETSENCRYPT_EMAIL` in `compose.yaml`.
 
+- **Local, self-signed** (`COMPOSE_PROFILES=self-signed`): a certificate signed by a local CA is generated for every domain when the project starts. Trust the CA once so the browser doesn't warn: import `nginx-proxy/certs/nginx-proxy-ca.crt` in the system store (Arch / CachyOS: `sudo trust anchor certs/nginx-proxy-ca.crt`, Debian / Ubuntu: copy it to `/usr/local/share/ca-certificates/nginx-proxy-ca.crt` and run `sudo update-ca-certificates`) and in Firefox (Settings > Certificates > Import, "trust this CA to identify websites").
+- **Server, Let's Encrypt** (`COMPOSE_PROFILES=acme`): the domains must point (DNS A / AAAA) to the server and ports 80 / 443 must be reachable; `DOMAIN_EMAIL` must be a real address (expiry notices). The certificate is requested when the project starts and renewed automatically.
+- **Own certificate from the client** (also wildcard): nginx-proxy only reads certificates from its own `certs/` folder, so the files always go there, even if the project keeps a copy of the originals (keep them out of git):
+  1. Copy them to `nginx-proxy/certs/` named after the domain: `shop.client.com.crt` (the certificate followed by the intermediate certificates, full chain) and `shop.client.com.key`. A wildcard certificate is named after its base domain, ex. `client.com.crt` / `client.com.key`, and is used for `www.client.com`, `shop.client.com`, ... when no exact file exists. Any other file name works with `CERT_NAME` (below).
+  2. Stop the companions from generating / overwriting a certificate for these domains, in `compose.override.yaml` of the project:
+     ```yaml
+     services:
+       {{project_name}}-nginx:      # {{project_name}}-php when WEB_SERVER=frankenphp
+         environment:
+           - LETSENCRYPT_HOST=
+           - SELF_SIGNED_HOST=
+           #- CERT_NAME=client-wildcard   # uses certs/client-wildcard.crt / .key
+     ```
+  3. `bin/restart` the project (nginx-proxy regenerates its configuration when the container starts) and check the CERT column of `bin/sites` in nginx-proxy.
 
+### Updating the boilerplate (bin/update)
+`bin/update` brings the infrastructure files of a project (`bin/`, `lib/`, `images/`, `compose*.yaml`, `Makefile`, samples, ...) to the latest m2docker `master`:
+```
+bin/update --dry-run   # list what would be added, changed and removed
+bin/update --diff      # same, with the differences of the changed files
+bin/update             # apply, after confirmation (twice: changed files, then removed files)
+```
+- The `{{project_name}}` placeholder is replaced automatically, the project keeps working without `bin/setup-docker`.
+- Never touched: `.env`, `src/`, `releases/`, `shared/`, `current`, `compose.override.yaml` and your own files in the project root.
+- Files removed from the boilerplate are deleted only from `bin/`, `lib/`, `images/` (and old root files like `other.yaml`), after confirmation.
+- Project specific Docker changes (extra service, other image, environment) go in `compose.override.yaml`: `bin/docker-compose` loads it last, so it survives every update.
+- After an update that changed `images/`, rebuild: `bin/docker-compose build` then `bin/restart`. Compare with the new `.env.sample` for new variables.
 
+### Deployment / Bitbucket pipelines
+Every server has its own `.env`, so the same project can deploy `stage` on staging and `master` on production:
+```
+DEPLOY_TYPE=simple          # simple (bin/deploy) or releases (bin/deploy-releases, run bin/migrate-to-releases once first)
+DEPLOY_BRANCH=stage         # branch deployed on this server
+DEPLOY_LOCALES="en_US ro_RO"
+DEPLOY_MAINTENANCE=1
+DEPLOY_COMPOSER_ARGS=       # ex. --no-dev --optimize-autoloader
+DEPLOY_TAILWIND=1           # npm ci + build-prod for every Hyvä theme
+DEPLOY_KEEP_RELEASES=3
+```
+The pipeline in the project repository (`src/bitbucket-pipelines.yml`, start from `bitbucket-pipelines.yml.sample`: `stage` deploys automatically, `master` waits for a manual Run, plus custom pipelines to redeploy) only runs `bin/pipeline` on the server; its output (each numbered step with its duration) is shown in Bitbucket and a failed step fails the pipeline:
+```yaml
+pipelines:
+  branches:
+    stage:
+      - step:
+          name: Deploy to staging
+          deployment: Staging
+          script:
+            - pipe: atlassian/ssh-run:0.8.1
+              variables:
+                SSH_USER: 'roweb'
+                SERVER: '<server>'
+                SSH_KEY: $SSH_PRIVATE_KEY
+                COMMAND: '/home/roweb/docker/<project>/bin/pipeline'
+```
+- The scripts don't need a TTY, so they work with the `ssh-run` pipe and with `ssh` without `-tt`.
+- `bin/deploy` refuses to pull when `src/` has uncommitted changes (checked before maintenance mode). If a later step fails, maintenance mode stays on so a half deployed shop is never served.
+- Run `bin/pipeline --dry-run` on the server to check the settings without deploying.
+
+### FrankenPHP (optional web server)
+Instead of the `nginx` + `php-fpm` containers, a project can run on [FrankenPHP](https://frankenphp.dev/) (Caddy + PHP 8.5 in one container, classic mode).
+Set it in `.env` before the first `bin/start`:
+```
+WEB_SERVER=frankenphp
+```
+- `bin/docker-compose` then also loads `compose.frankenphp.yaml`: the `{{project_name}}-nginx` container is disabled and `{{project_name}}-php` is built from `images/frankenphp/8.5` and routed by nginx-proxy on port `8080`. `PHP_VERSION` is ignored in this mode.
+- The container keeps the `{{project_name}}-php` name, so all `bin/*` commands work the same.
+- Web server rules live in `images/frankenphp/8.5/conf/Caddyfile` (mounted, `bin/restart` after editing). Only Magento's entry points (`index.php`, `get.php`, `static.php`, `health_check.php`, `errors/*.php`) can be executed.
+- When switching an existing project run `bin/stop` first, otherwise the old nginx container keeps running and nginx-proxy routes to both.
+- Worker mode is not enabled: Magento keeps state between requests and leaks it in worker mode.
 
 ### Multiple Domain Configuration
 - Current limitation: `bin/setup-magento` supports only a single domain
@@ -215,14 +286,12 @@ Add a volume to the nginx service in the `compose.yml` file to mount the `.htpas
 
 ### add dummy data
 `` bin/magento sampledata:deploy`` to add default magento dummy data and then run `bin/magento setup:upgrade` to install it.
-### how to use the update command
-### create chat ores for grunt, pcx, xdebug, testing,... and all that stuff
 ### Troubleshooting
 - Verify all container names match in `.env` and configuration files
 - Check Docker logs for any startup or configuration issues
 - Ensure all required environment variables are set
 - `bin/setup-magento` prompts the fallowing error:`There are no commands defined in the "config" namespace.` you need to run `bin/magento set:up` to see what the issue is. After resolving the issue you will have to manually change the base url in the database.
-- `bin/magento set:up` prompts the fallowing error:'Could not validate a connection to Elasticsearch. No alive nodes found in your cluster'. It may mean the magento version is not compatible with opensearch and you need to change to elasticsearch. You can do this by changing the network in the `compose.yaml`  from `open-search-network` to `elastic-search-network` (also go to the env.php file and under elasticsearch change the host to `elastisearch`) and then run `bin/restart` and try again.
+- `bin/magento set:up` prompts 'Could not validate a connection to Elasticsearch. No alive nodes found in your cluster': check that the shared `opensearch` container of nginx-proxy is running and that the search host is `opensearch` (port 9200). The shared OpenSearch is 3.x: Magento < 2.4.8-p5 and Mage-OS 2.x officially need 2.19, run `bin/check-dependencies` to compare.
 - if bin/magento-setup does not change teh base urls you should do this manually in the db by phpmyadmin
 - if using Hyva theme for magento and the Hyva css files are not loaded properly run `rm -rf pub/static/frontend/*` and refresh the page (once or twice)
 
@@ -230,25 +299,25 @@ Add a volume to the nginx service in the `compose.yml` file to mount the `.htpas
 
 For an improved developer experience, caches are automatically refreshed when related files are updated, courtesy of [cache-clean](https://github.com/mage2tv/magento-cache-clean). This means you can keep all of the standard Magento caches enabled, and this script will only clear the specific caches needed, and only when necessary.
 
-To disable this functionality, uncomment the last line in the `bin/start` file to disable the watcher.
+To disable this functionality, comment out the last line (`bin/cache-clean --watch`) in the `bin/start` file.
 
 ### Redis
 
-Redis is now the default cache and session storage engine, and is automatically configured & enabled when running `bin/setup` on new installs.
+Redis (Valkey, container `{{project_name}}-redis`) is the default cache and session storage engine, configured automatically by `bin/setup-install` on new installs and in the `env.php` template.
 
 Use the following lines to enable Redis on existing installs:
 
 **Enable for Cache:**
 
-`bin/magento setup:config:set --cache-backend=redis --cache-backend-redis-server=redis --cache-backend-redis-db=0`
+`bin/magento setup:config:set --cache-backend=redis --cache-backend-redis-server={{project_name}}-redis --cache-backend-redis-db=0`
 
 **Enable for Full Page Cache:**
 
-`bin/magento setup:config:set --page-cache=redis --page-cache-redis-server=redis --page-cache-redis-db=1`
+`bin/magento setup:config:set --page-cache=redis --page-cache-redis-server={{project_name}}-redis --page-cache-redis-db=1`
 
 **Enable for Session:**
 
-`bin/magento setup:config:set --session-save=redis --session-save-redis-host=redis --session-save-redis-log-level=4 --session-save-redis-db=2`
+`bin/magento setup:config:set --session-save=redis --session-save-redis-host={{project_name}}-redis --session-save-redis-log-level=4 --session-save-redis-db=2`
 
 You may also monitor Redis by running: `bin/redis redis-cli monitor`
 
@@ -273,7 +342,7 @@ Otherwise, this project now automatically sets up Xdebug support with VS Code. I
 4. Attention to the following configs inside the file:
     * The port must be the same as the port on the xdebug.ini file.
     ```bash
-      bin/cli cat /usr/local/etc/php/php.ini
+      bin/cli cat /usr/local/etc/php/conf.d/php.ini   # bin/xdebug enable sets xdebug.mode = debug
     ```
     ```bash
       memory_limit = 4G
@@ -304,7 +373,7 @@ Otherwise, this project now automatically sets up Xdebug support with VS Code. I
                   "request": "launch",
                   "port": 9003,
                   "pathMappings": {
-                      "/var/www/html": "${workspaceFolder}"
+                      "/var/www": "${workspaceFolder}"
                   },
                   "hostname": "localhost"
               }
@@ -328,9 +397,9 @@ Otherwise, this project now automatically sets up Xdebug support with VS Code. I
         * Create a new interpreter from the `From Docker, Vagrant, VM...` list.
         * Select the Docker Compose option.
         * For Server, select `Docker`. If you don't have Docker set up as a server, create one and name it `Docker`.
-        * For Configuration files, add both the `compose.yaml` and `compose.dev.yaml` files from your project directory.
-        * For Service, select `phpfpm`, then click OK.
-        * Name this CLI Interpreter `phpfpm`, then click OK again.
+        * For Configuration files, add the `compose.yaml` file from your project directory (and `compose.frankenphp.yaml` when using FrankenPHP).
+        * For Service, select `{{project_name}}-php`, then click OK.
+        * Name this CLI Interpreter `{{project_name}}-php`, then click OK again.
 
     * `Path mappings`
         * There is no need to define a path mapping in this area.

@@ -1,10 +1,12 @@
 FROM php:8.4-fpm-bookworm
 
-
 USER root
 
 ARG USER_ID
 ARG GROUP_ID
+# Tool versions, pinned in the repository
+ARG NODE_VERSION=24
+ARG COMPOSER_VERSION=2.10.3
 
 RUN userdel -f www-data
 RUN if getent group www-data ; then groupdel www-data; fi
@@ -22,7 +24,7 @@ RUN touch /var/run/crond.pid
 RUN chown -R www-data:www-data /var/run
 RUN chown www-data:www-data /var/run/supervisord.pid /var/run/crond.pid
 
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash -
 
 RUN apt-get update && apt-get install -y \
     cron \
@@ -59,22 +61,11 @@ RUN apt-get update && apt-get install -y \
 RUN pecl channel-update pecl.php.net && pecl install \
     redis-6.2.0 \
     ssh2-1.4.1 \
-    swoole-6.0.2\
+    swoole-6.0.2 \
     xdebug-3.4.2 \
+    imagick-3.8.1 \
   && pecl clear-cache \
   && rm -rf /tmp/pear
-
-RUN curl -L https://github.com/Imagick/imagick/archive/28f27044e435a2b203e32675e942eb8de620ee58.zip -o imagick.zip \
-    && unzip imagick.zip \
-    && rm imagick.zip \
-    && cd imagick-28f27044e435a2b203e32675e942eb8de620ee58 \
-    && phpize \
-    && ./configure --with-php-config=/usr/local/bin/php-config \
-    && make \
-    && make install \
-    && echo "extension=imagick.so" >> $PHP_INI_DIR/conf.d/imagick.ini \
-    && cd .. \
-    && rm -rf imagick-28f27044e435a2b203e32675e942eb8de620ee58
 
 RUN docker-php-ext-configure \
     gd --with-freetype --with-jpeg --with-webp \
@@ -107,20 +98,13 @@ RUN docker-php-ext-configure \
     xdebug
 
 
-RUN git clone --branch v0.4.18 --depth=1 https://github.com/NoiseByNorthwest/php-spx.git /usr/lib/php-spx \
-    && cd /usr/lib/php-spx \
-    && phpize \
-    && ./configure \
-    && make \
-    && make install
-
 RUN curl -sS https://getcomposer.org/installer | \
-  php -- --version=2.8.6 --install-dir=/usr/local/bin --filename=composer
+  php -- --version=${COMPOSER_VERSION} --install-dir=/usr/local/bin --filename=composer
 
-COPY conf/spx.ini $PHP_INI_DIR/conf.d/spx.ini
 COPY conf/msmtprc /etc/msmtprc
 COPY conf/logrotate-magento /etc/logrotate.d/magento
-
+COPY conf/ecomscan-daily.sh /usr/local/bin/ecomscan-daily.sh
+RUN chmod +x /usr/local/bin/ecomscan-daily.sh
 RUN apt-get update && apt-get install -y supervisor
 ADD conf/crontab /etc/cron.d/cron
 RUN crontab -u www-data /etc/cron.d/cron
@@ -129,7 +113,6 @@ RUN usermod -a -G crontab www-data
 RUN chmod gu+s /usr/sbin/cron
 
 #RUN python3 -c "import socket as s; sock = s.socket(s.AF_UNIX); sock.bind('/dev/shm/supervisor.sock')"
-
 
 USER www-data
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

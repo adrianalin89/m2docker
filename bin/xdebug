@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# php.ini mounted into the php container (see compose.yaml / compose.frankenphp.yaml)
+if [ "$(grep -E '^WEB_SERVER=' .env | cut -d '=' -f2)" == "frankenphp" ]; then
+    PHP_INI="./images/frankenphp/8.5/conf/php.ini"
+else
+    PHP_INI="./images/php/$(grep -E '^PHP_VERSION=' .env | cut -d '=' -f2)/conf/php.ini"
+fi
+
 S=$(bin/clinotty cat /usr/local/etc/php/conf.d/php.ini | grep -iGc 'xdebug.mode = off');
 
 xdebug_status() {
@@ -20,7 +27,7 @@ xdebug_toggle() {
 
 xdebug_enable() {
     if [[ $S == 1 ]]; then
-        sed -i -e 's/^xdebug.mode = off/xdebug.mode = debug/g' ./images/php/8.3/conf/php.ini
+        sed -i -e 's/^xdebug.mode = off/xdebug.mode = debug/g' "$PHP_INI"
         docker restart {{project_name}}-php
         echo "Xdebug debug mode has been enabled."
     else
@@ -30,7 +37,7 @@ xdebug_enable() {
 
 xdebug_disable() {
     if [[ $S == 0 ]]; then
-        sed -i -e 's/^xdebug.mode = debug/xdebug.mode = off/g' ./images/php/8.3/conf/php.ini
+        sed -i -e 's/^xdebug.mode = debug/xdebug.mode = off/g' "$PHP_INI"
         docker restart {{project_name}}-php
         echo "Xdebug debug mode has been disabled."
     else

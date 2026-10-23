@@ -1,0 +1,30 @@
+# FrankenPHP variant, loaded on top of compose.yaml by bin/docker-compose
+# when WEB_SERVER=frankenphp is set in .env.
+#
+# The php container becomes the web server (Caddy + PHP 8.5 in one process)
+# and is routed by nginx-proxy directly; the nginx container is disabled.
+# Keeping the "{{project_name}}-php" name means every bin/* script still works.
+
+services:
+  {{project_name}}-nginx:
+    # Only starts when the "nginx" profile is explicitly enabled
+    profiles:
+      - nginx
+
+  {{project_name}}-php:
+    build:
+      context: images/frankenphp/8.5
+    volumes:
+      - ./images/frankenphp/8.5/conf/php.ini:/usr/local/etc/php/conf.d/php.ini
+      - ./images/frankenphp/8.5/conf/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
+      - ./images/frankenphp/8.5/conf/Caddyfile:/etc/caddy/Caddyfile
+    expose:
+      - "8080"
+    networks:
+      - nginx-proxy
+    environment:
+      - VIRTUAL_HOST=${DOMAIN_HOSTS}
+      - SELF_SIGNED_HOST=${DOMAIN_HOSTS}
+      - VIRTUAL_PORT=8080
+      - LETSENCRYPT_HOST=${DOMAIN_HOSTS}
+      - LETSENCRYPT_EMAIL=${DOMAIN_EMAIL}

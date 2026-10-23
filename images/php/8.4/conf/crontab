@@ -1,6 +1,13 @@
 SHELL=/bin/bash
 
 #MAGENTO
-#* * * * * www-data /usr/local/bin/php /var/www/src/bin/magento cron:run >> /var/www/src/var/log/magento.cron.log 2>&1
-#0 0 * * * www-data tail -n 1000 /var/www/src/var/log/magento.cron.log > /var/www/src/var/log/magento.cron.log.tmp && mv /var/www/src/var/log/magento.cron.log.tmp /var/www/src/var/log/magento.cron.log
-#0 0 * * * www-data /usr/sbin/logrotate /etc/logrotate.d/magento --state /tmp/logrotate-magento.state
+* * * * * /usr/local/bin/php /var/www/src/bin/magento cron:run >> /var/www/src/var/log/magento.cron.log 2>&1
+
+#CRON LOG CLEANUP
+0 0 * * * tail -n 1000 /var/www/src/var/log/magento.cron.log > /var/www/src/var/log/magento.cron.log.tmp && mv /var/www/src/var/log/magento.cron.log.tmp /var/www/src/var/log/magento.cron.log
+
+#LOG ROTATION
+0 0 * * * /usr/sbin/logrotate /etc/logrotate.d/magento --state /tmp/logrotate-magento.state
+
+#ECOMSCAN DAILY SCAN
+0 2 * * * /usr/local/bin/ecomscan-daily.sh >> /var/www/src/var/log/ecomscan-cron.log 2>&1

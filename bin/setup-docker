@@ -1,7 +1,12 @@
 #!/bin/bash
+# Replace the {{project_name}} placeholder with PROJECT_NAME from .env in the
+# boilerplate files only (never src/, releases/, shared/ or anything else).
 ENV_FILE=".env"
-TARGET_FOLDER="./"
-SEARCH_STRING="{{project_name}}"
+# Built from two parts so the scripts never replace their own search string
+SEARCH_STRING="{{project""_name}}"
+
+# Files and folders that contain the placeholder in the boilerplate
+INFRA_PATHS=(compose.yaml compose.frankenphp.yaml compose.override.yaml env.php "$ENV_FILE" Makefile README.md bin lib images scripts)
 
 # Read the PROJECT_NAME variable from the .env file
 if [ -f "$ENV_FILE" ]; then
@@ -17,7 +22,14 @@ if [ -z "$PROJECT_NAME" ]; then
     exit 1
 fi
 
-# Search and replace SEARCH_STRING with the value of PROJECT_NAME in all files in the target folder
-find "$TARGET_FOLDER" -type f -not -path "./bin/setup-docker" -exec sed -i "s/$SEARCH_STRING/$PROJECT_NAME/g" {} +
+EXISTING=()
+for path in "${INFRA_PATHS[@]}"; do
+    [ -e "$path" ] && EXISTING+=("$path")
+done
+
+grep -rlF --exclude=setup-docker "$SEARCH_STRING" "${EXISTING[@]}" 2>/dev/null | while read -r file; do
+    sed -i "s/$SEARCH_STRING/$PROJECT_NAME/g" "$file"
+    echo "  $file"
+done
 
 echo "Replacement was successful! $PROJECT_NAME"

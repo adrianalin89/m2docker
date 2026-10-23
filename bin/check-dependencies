@@ -1,246 +1,199 @@
 #!/usr/bin/env bash
+# Magento / Mage-OS system requirements, from lib/versions.tsv.
+#
+# Usage:
+#   bin/check-dependencies                  check this project: detects the edition/version
+#                                           from src/composer.lock and compares it with the
+#                                           PHP image, MariaDB, cache, Composer of this project
+#                                           and the shared OpenSearch / RabbitMQ (nginx-proxy)
+#   bin/check-dependencies <edition> <ver>  requirements of a version, ex. mage-os 3.6.0, magento 2.4.8-p3
+#   bin/check-dependencies --list           interactive list of all version groups
 
-# Define colors for formatting
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+. "$(dirname "$0")/../lib/versions.sh"
+. "$(dirname "$0")/../lib/deploy.sh"
+cd "$PROJECT_ROOT" || exit 1
 
-# Function to display the script header
-show_header() {
-    echo -e "${GREEN}============================================${NC}"
-    echo -e "${GREEN}   Magento 2 System Requirements Checker${NC}"
-    echo -e "${GREEN}============================================${NC}"
-    echo
-}
+OK="${GREEN}✔${NC}"
+BAD="${RED}✘${NC}"
+UNKNOWN="${YELLOW}?${NC}"
 
-# Function to display version groups
-show_version_groups() {
-    echo -e "${BLUE}Available Magento version groups:${NC}"
-    echo "1) 2.4.7.x (2.4.7, 2.4.7-p1, 2.4.7-p2, 2.4.7-p3)"
-    echo "2) 2.4.6.x (2.4.6 through 2.4.6-p8)"
-    echo "3) 2.4.5.x (2.4.5 through 2.4.5-p10)"
-    echo "4) 2.4.4.x (2.4.4 through 2.4.4-p11)"
-    echo "5) 2.4.3.x (2.4.3-p3)"
-    echo "6) 2.4.2.x (2.4.2-p2)"
-    echo
-}
-
-# Function to display requirements for a specific version group
+# Print the requirements row of an edition/version
 show_requirements() {
-    local version_group=$1
-    echo -e "${GREEN}System Requirements for Magento ${version_group}:${NC}"
-    echo -e "${YELLOW}Required Components:${NC}"
-    
-    case $version_group in
-        "2.4.7.x")
-            echo "• PHP: 8.3, 8.2"
-            echo "• Composer: 2.7"
-            echo "• Database:"
-            echo "  - MySQL: 8.0"
-            echo "  - MariaDB: 10.6"
-            echo "• Search: "
-            echo "  - Elasticsearch: 8.11"
-            echo "  - OpenSearch: 2.12"
-            echo "• Cache/Session:"
-            echo "  - Redis: 7.2"
-            echo "• Message Queue:"
-            echo "  - RabbitMQ: 3.13"
-            echo "• Web Server:"
-            echo "  - Apache: 2.4"
-            echo "  - Nginx: 1.24"
-            echo "• Varnish: 7.5"
-            echo -e "${BLUE}Supported AWS Services:${NC}"
-            echo "• Aurora (MySQL): 8.0"
-            echo "• S3: ✔️"
-            echo "• MQ: 3.11.20"
-            echo "• ElastiCache: Redis7.0"
-            echo "• OpenSearch: 2.11"
-            ;;
-        "2.4.6.x")
-            echo "• PHP: 8.2, 8.1"
-            echo "• Composer: 2.2"
-            echo "• Database:"
-            echo "  - MySQL: 8.0"
-            echo "  - MariaDB: 10.6"
-            echo "• Search: "
-            echo "  - Elasticsearch: 8.11, 7.17"
-            echo "  - OpenSearch: 2.12"
-            echo "• Cache/Session:"
-            echo "  - Redis: 7.0"
-            echo "• Message Queue:"
-            echo "  - RabbitMQ: 3.13"
-            echo "• Web Server:"
-            echo "  - Apache: 2.4"
-            echo "  - Nginx: 1.24"
-            echo "• Varnish: 7.5"
-            echo -e "${BLUE}Supported AWS Services:${NC}"
-            echo "• Aurora (MySQL): 8.0"
-            echo "• S3: ✔️"
-            echo "• MQ: 3.9.16"
-            echo "• ElastiCache: Redis6.2"
-            echo "• OpenSearch: 1.2"
-            ;;
-        "2.4.5.x")
-            echo "• PHP: 8.1"
-            echo "• Composer: 2.2"
-            echo "• Database:"
-            echo "  - MySQL: 8.0"
-            echo "  - MariaDB: 10.4"
-            echo "• Search: "
-            echo "  - Elasticsearch: 7.17"
-            echo "  - OpenSearch: 1.2"
-            echo "• Cache/Session:"
-            echo "  - Redis: 6.2"
-            echo "• Message Queue:"
-            echo "  - RabbitMQ: 3.11, 3.9"
-            echo "• Web Server:"
-            echo "  - Apache: 2.4"
-            echo "  - Nginx: 1.24"
-            echo "• Varnish: 7.3"
-            echo -e "${BLUE}Supported AWS Services:${NC}"
-            echo "• Aurora (MySQL): 8.0"
-            echo "• S3: ✔️"
-            echo "• MQ: 3.9.13"
-            echo "• ElastiCache: Redis6"
-            echo "• OpenSearch: 1.2"
-            ;;
-        "2.4.4.x")
-            echo "• PHP: 8.1"
-            echo "• Composer: 2.2"
-            echo "• Database:"
-            echo "  - MySQL: 8.0"
-            echo "  - MariaDB: 10.4"
-            echo "• Search: "
-            echo "  - Elasticsearch: 7.17"
-            echo "  - OpenSearch: 1.2"
-            echo "• Cache/Session:"
-            echo "  - Redis: 6.2"
-            echo "• Message Queue:"
-            echo "  - RabbitMQ: 3.9"
-            echo "• Web Server:"
-            echo "  - Apache: 2.4"
-            echo "  - Nginx: 1.24"
-            echo "• Varnish: 7.3"
-            echo -e "${YELLOW}NOTE: Supports MySQL 8.0.0 through 8.0.28 only${NC}"
-            echo -e "${BLUE}Supported AWS Services:${NC}"
-            echo "• Aurora (MySQL): 8.0"
-            echo "• S3: ✔️"
-            echo "• MQ: 3.9.13"
-            echo "• ElastiCache: Redis6"
-            echo "• OpenSearch: 1.2"
-            ;;
-        "2.4.3.x")
-            echo "• PHP: 7.4"
-            echo "• Composer: 1"
-            echo "• Database:"
-            echo "  - MySQL: 8.0"
-            echo "  - MariaDB: 10.4"
-            echo "• Search: "
-            echo "  - Elasticsearch: 7.16"
-            echo "  - OpenSearch: 1.2"
-            echo "• Cache/Session:"
-            echo "  - Redis: 6.0"
-            echo "• Message Queue:"
-            echo "  - RabbitMQ: 3.8"
-            echo "• Web Server:"
-            echo "  - Apache: 2.4"
-            echo "  - Nginx: 1.18"
-            echo "• Varnish: 6.5"
-            echo -e "${BLUE}Supported AWS Services:${NC}"
-            echo "• Aurora (MySQL): 5.7"
-            echo "• S3: ✔️"
-            echo "• MQ: 3.8.11"
-            echo "• ElastiCache: Redis6"
-            echo "• Elasticsearch: 7.9"
-            ;;
-        "2.4.2.x")
-            echo "• PHP: 7.4"
-            echo "• Composer: 1"
-            echo "• Database:"
-            echo "  - MySQL: 8.0"
-            echo "  - MariaDB: 10.4"
-            echo "• Search: "
-            echo "  - Elasticsearch: 7.9"
-            echo "• Cache/Session:"
-            echo "  - Redis: 6.0"
-            echo "• Message Queue:"
-            echo "  - RabbitMQ: 3.8"
-            echo "• Web Server:"
-            echo "  - Apache: 2.4"
-            echo "  - Nginx: 1.18"
-            echo "• Varnish: 6.4"
-            echo -e "${BLUE}Supported AWS Services:${NC}"
-            echo "• S3: ✔️"
-            echo "• Elasticsearch: 7.9"
-            ;;
-        *)
-            echo -e "${RED}Version group not found${NC}"
-            ;;
-    esac
+  local edition="$1" version="$2" title="$3"
+  local row
+  if ! row="$(versions_lookup "$edition" "$version")"; then
+    echo -e "${RED}No requirements known for $edition $version (lib/versions.tsv).${NC}"
+    return 1
+  fi
+  IFS=$'\t' read -r R_PHP R_COMPOSER R_DB R_OS R_RMQ R_CACHE R_NGINX <<< "$row"
+  echo -e "${GREEN}System requirements for ${title:-$edition $version}:${NC}"
+  echo "  PHP:           ${R_PHP//,/, }"
+  echo "  Composer:      $R_COMPOSER"
+  echo "  MariaDB:       ${R_DB//,/, }"
+  echo "  OpenSearch:    ${R_OS//,/, }"
+  echo "  RabbitMQ:      ${R_RMQ//,/, }"
+  echo "  Cache/Session: $R_CACHE"
+  echo "  nginx:         ${R_NGINX//,/, }"
 }
 
-# Function to show additional information
-show_additional_info() {
-    echo -e "${BLUE}Additional Information:${NC}"
-    echo "• Full system requirements documentation: https://experienceleague.adobe.com/docs/commerce-operations/installation-guide/system-requirements.html"
-    echo "• Magento DevDocs: https://developer.adobe.com/commerce/docs/"
-    echo "• Security Best Practices: https://experienceleague.adobe.com/docs/commerce-operations/implementation-playbook/best-practices/security/overview.html"
+# Minimum of a "a,b" requirement is its first value
+min_of() { echo "${1%%,*}"; }
+
+# major.minor of a version string (ex. 11.4.3 -> 11.4, 8.1-alpine -> 8.1)
+short_version() { echo "$1" | grep -oE '^[0-9]+(\.[0-9]+)?'; }
+
+# compare <label> <actual> <required minimum>
+compare() {
+  local label="$1" actual="$2" required="$3"
+  if [ -z "$actual" ]; then
+    printf "  %b %-14s %-22s %s\n" "$UNKNOWN" "$label" "unknown" "needs $required"
+  elif [ "$required" = "-" ] || version_ge "$actual" "$required"; then
+    printf "  %b %-14s %-22s %s\n" "$OK" "$label" "$actual" "needs $required"
+  else
+    printf "  %b %-14s %-22s %s\n" "$BAD" "$label" "$actual" "needs $required"
+    ISSUES=$((ISSUES + 1))
+  fi
 }
 
-# Main script execution
-clear
-show_header
+check_project() {
+  local lock="src/composer.lock"
+  if [ ! -f "$lock" ]; then
+    echo "No src/composer.lock found. Use: bin/check-dependencies <edition> <version> or --list"
+    exit 1
+  fi
 
-while true; do
-    show_version_groups
-    echo -e "${YELLOW}Options:${NC}"
-    echo "1-6) Select version group"
-    echo "i) Additional Information"
-    echo "q) Quit"
-    echo
-    read -r -p "Enter your choice: " choice
-    
-    case $choice in
-        q|Q) 
-            echo -e "${GREEN}Thank you for using the Magento System Requirements Checker!${NC}"
-            exit 0
-            ;;
-        i|I)
-            clear
-            show_additional_info
-            ;;
-        1) 
-            clear
-            show_requirements "2.4.7.x"
-            ;;
-        2)
-            clear
-            show_requirements "2.4.6.x"
-            ;;
-        3)
-            clear
-            show_requirements "2.4.5.x"
-            ;;
-        4)
-            clear
-            show_requirements "2.4.4.x"
-            ;;
-        5)
-            clear
-            show_requirements "2.4.3.x"
-            ;;
-        6)
-            clear
-            show_requirements "2.4.2.x"
-            ;;
-        *)
-            echo -e "${RED}Invalid choice. Please try again.${NC}"
-            ;;
+  local package edition version
+  package=$(grep -oE '"name": "(mage-os/product-community-edition|magento/product-(community|enterprise)-edition)"' "$lock" | head -n 1 | cut -d'"' -f4)
+  version=$(grep -A1 "\"name\": \"$package\"" "$lock" | grep -oE '"version": "[^"]+"' | cut -d'"' -f4)
+  case "$package" in
+    mage-os/*) edition="mage-os" ;;
+    magento/*) edition="magento" ;;
+    *) echo "Could not detect Magento / Mage-OS in $lock."; exit 1 ;;
+  esac
+
+  echo -e "${BLUE}Project ${PROJECT_NAME}: ${package} ${version}${NC}"
+  echo ""
+  show_requirements "$edition" "$version" "$package $version" || exit 1
+  echo ""
+  echo -e "${BLUE}This project / shared services:${NC}"
+  ISSUES=0
+
+  # PHP
+  local web_server php_version php_dir
+  web_server="$(env_value WEB_SERVER)"
+  if [ "$web_server" = "frankenphp" ]; then
+    php_version="8.5"
+    php_dir="images/frankenphp/8.5"
+  else
+    php_version="$(env_value PHP_VERSION)"
+    php_dir="images/php/$php_version"
+  fi
+  if [[ ",$R_PHP," == *",$php_version,"* ]]; then
+    printf "  %b %-14s %-22s %s\n" "$OK" "PHP" "$php_version (${web_server:-nginx})" "supported ${R_PHP//,/, }"
+  else
+    printf "  %b %-14s %-22s %s\n" "$BAD" "PHP" "$php_version (${web_server:-nginx})" "supported ${R_PHP//,/, }"
+    ISSUES=$((ISSUES + 1))
+  fi
+
+  # Composer pinned in the image Dockerfile
+  compare "Composer" "$(grep -oE -- '--version=[0-9.]+' "$php_dir/Dockerfile" 2>/dev/null | cut -d= -f2)" "$(min_of "$R_COMPOSER")"
+
+  # MariaDB / cache images from compose.yaml (uncommented lines)
+  local db_image cache_image cache_kind cache_version req_kind req_version
+  db_image=$(grep -E '^\s+image:\s*mariadb:' compose.yaml | head -n 1 | sed -E 's/.*mariadb:([^ #]+).*/\1/')
+  compare "MariaDB" "$(short_version "$db_image")" "$(min_of "$R_DB")"
+
+  cache_image=$(grep -E '^\s+image:\s*(valkey/valkey|redis):' compose.yaml | head -n 1 | sed -E 's/.*image:\s*//; s/ .*//')
+  cache_kind=$(echo "$cache_image" | grep -q valkey && echo valkey || echo redis)
+  cache_version=$(short_version "${cache_image##*:}")
+  req_kind="${R_CACHE%% *}"
+  req_version="${R_CACHE##* }"
+  if [ "$req_kind" = "valkey" ] && [ "$cache_kind" = "redis" ]; then
+    printf "  %b %-14s %-22s %s\n" "$BAD" "Cache" "$cache_kind $cache_version" "needs $R_CACHE"
+    ISSUES=$((ISSUES + 1))
+  else
+    # Valkey is a drop-in for a Redis requirement, compare versions only when the kind matches
+    [ "$req_kind" != "$cache_kind" ] && req_version="-"
+    compare "Cache" "$cache_kind $cache_version" "$req_version"
+  fi
+
+  # Shared services from nginx-proxy, as seen by the running containers
+  local os_version rmq_version
+  os_version=$(docker exec opensearch curl -s http://127.0.0.1:9200 2>/dev/null | grep -oE '"number" : "[^"]+"' | cut -d'"' -f4)
+  compare "OpenSearch" "$os_version" "$(min_of "$R_OS")"
+  if [ -n "$os_version" ] && [[ "$R_OS" != *","* ]] && [ "${os_version%%.*}" != "${R_OS%%.*}" ]; then
+    echo -e "    ${YELLOW}shared OpenSearch major $os_version differs from the supported $R_OS${NC}"
+  fi
+  rmq_version=$(docker inspect rabbitmq --format '{{.Config.Image}}' 2>/dev/null | sed -E 's/.*:([0-9.]+).*/\1/')
+  compare "RabbitMQ" "$rmq_version" "$(min_of "$R_RMQ")"
+
+  # Web server
+  if [ "$web_server" = "frankenphp" ]; then
+    printf "  %b %-14s %-22s %s\n" "$OK" "Web server" "FrankenPHP (Caddy)" "nginx $R_NGINX equivalent"
+  else
+    compare "nginx" "$(grep -E '^\s+image:\s*nginx:' compose.yaml | head -n 1 | sed -E 's/.*nginx:([0-9.]+).*/\1/')" "$(min_of "$R_NGINX")"
+  fi
+
+  echo ""
+  if [ "$ISSUES" -gt 0 ]; then
+    echo -e "${YELLOW}$ISSUES component(s) below the requirements of ${package} ${version}.${NC}"
+    echo "Requirements are the official ones for the latest patch, older patches may accept lower versions."
+    exit 1
+  fi
+  echo -e "${GREEN}All components meet the requirements.${NC}"
+}
+
+show_menu() {
+  local groups=(
+    "Mage-OS 3.x|mage-os|3.0.0"
+    "Mage-OS 2.x|mage-os|2.0.0"
+    "Mage-OS 1.1 - 1.3|mage-os|1.1.0"
+    "Mage-OS 1.0|mage-os|1.0.0"
+    "Magento 2.4.9|magento|2.4.9"
+    "Magento 2.4.8|magento|2.4.8"
+    "Magento 2.4.7|magento|2.4.7"
+    "Magento 2.4.6|magento|2.4.6"
+    "Magento 2.4.5 (EOL)|magento|2.4.5"
+    "Magento 2.4.4 (EOL)|magento|2.4.4"
+    "Magento 2.4.3 (EOL)|magento|2.4.3"
+    "Magento 2.4.2 (EOL)|magento|2.4.2"
+  )
+  while true; do
+    echo -e "${BLUE}Version groups:${NC}"
+    local i
+    for i in "${!groups[@]}"; do
+      printf "%3d) %s\n" $((i + 1)) "${groups[$i]%%|*}"
+    done
+    echo "  i) Documentation links"
+    echo "  q) Quit"
+    read -r -p "Choice: " choice
+    echo ""
+    case "$choice" in
+      q|Q) exit 0 ;;
+      i|I)
+        echo "Adobe Commerce: https://experienceleague.adobe.com/en/docs/commerce-operations/installation-guide/system-requirements"
+        echo "Mage-OS:        https://mage-os.org/get-started/system-requirements/"
+        ;;
+      *)
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#groups[@]} ]; then
+          IFS='|' read -r title edition version <<< "${groups[$((choice - 1))]}"
+          show_requirements "$edition" "$version" "$title"
+        else
+          echo -e "${RED}Invalid choice.${NC}"
+        fi
+        ;;
     esac
-    
-    echo
-    read -r -p "Press Enter to continue..."
-    clear
-done
+    echo ""
+  done
+}
+
+case "$1" in
+  -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' ;;
+  -l|--list) show_menu ;;
+  "") load_deploy_env; check_project ;;
+  *)
+    edition="$1"
+    [ "$edition" = "mageos" ] && edition="mage-os"
+    show_requirements "$edition" "${2:?Usage: bin/check-dependencies <edition> <version>}"
+    ;;
+esac

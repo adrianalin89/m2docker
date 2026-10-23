@@ -1,0 +1,30 @@
+# System requirements per edition/version, read by bin/check-dependencies (via lib/versions.sh).
+# Columns are tab-separated. Comment lines start with `#` and blank lines are ignored.
+#
+# `version` is a boundary-aware prefix: "2.4.9" matches 2.4.9 and 2.4.9-p1 but not 2.4.91,
+# "1" matches 1.3.1 but not 10.0.0. Rows are matched top-to-bottom, first match wins, so keep
+# more specific prefixes above less specific ones (ex. mage-os 1.0 above mage-os 1).
+#
+# php       supported PHP versions (comma separated)
+# other     recommended version; when several are listed (comma separated) the first is the minimum
+#
+# Sources (checked 2026-10-23):
+#   - Adobe Commerce, values for the latest patch of each line:
+#     https://experienceleague.adobe.com/en/docs/commerce-operations/installation-guide/system-requirements
+#   - Mage-OS: https://mage-os.org/get-started/system-requirements/ and the php constraint of
+#     mage-os/product-community-edition on https://repo.mage-os.org/
+#   - Gaps (EOL Magento lines, Mage-OS 1.x/2.x services) from markshust/docker-magento compose/lib/versions.tsv
+#
+# edition	version	php	composer	mariadb	opensearch	rabbitmq	cache	nginx
+magento	2.4.9	8.5	2.10	12.3	3	4.3	valkey 9	1.30
+magento	2.4.8	8.3,8.4	2.10	11.4,11.8	3	4.3	valkey 8.1	1.30
+magento	2.4.7	8.2,8.3	2.10	10.11,11.8	2.19,3	4.3	valkey 8.1	1.30
+magento	2.4.6	8.1,8.2	2.2.26	10.11	2.19,3	4.3	valkey 8.1	1.30
+magento	2.4.5	8.1	2.2	10.4	1.2	3.9,3.11	redis 6.2	1.24
+magento	2.4.4	8.1	2.2	10.4	1.2	3.9	redis 6.2	1.24
+magento	2.4.3	7.4	1	10.4	1.2	3.8	redis 6.0	1.18
+magento	2.4.2	7.4	1	10.4	-	3.8	redis 6.0	1.18
+mage-os	3	8.3,8.4,8.5	2.10.2	11.4	3	4.0,4.1	valkey 8	1.26,1.28
+mage-os	2	8.2,8.3,8.4	2.9.8	11.4	2.19	4.2	valkey 8.1	1.28
+mage-os	1.0	8.1,8.2,8.3	2.9.3	10.6	2.12	3.13	redis 7.2	1.28
+mage-os	1	8.2,8.3,8.4	2.9.3	10.6	2.19	3.13	redis 7.2	1.28

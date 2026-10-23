@@ -1,6 +1,15 @@
+# Container logs (docker json-file driver) are rotated so they can't fill the disk.
+# Tune per project in .env: LOG_MAX_SIZE / LOG_MAX_FILE.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "${LOG_MAX_SIZE:-10m}"
+    max-file: "${LOG_MAX_FILE:-3}"
+
 services:
   {{project_name}}-nginx:
     container_name: {{project_name}}-nginx
+    logging: *default-logging
     restart: unless-stopped
     image: nginx:1.27
     volumes:
@@ -11,7 +20,8 @@ services:
     ports:
       - "80"
     depends_on:
-      - {{project_name}}-php
+      {{project_name}}-php:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
@@ -26,6 +36,7 @@ services:
 
   {{project_name}}-php:
     container_name: {{project_name}}-php
+    logging: *default-logging
     restart: unless-stopped
     user: ${USER_ID}:${GROUP_ID}
     build:
@@ -44,6 +55,11 @@ services:
       - ./images/php/${PHP_VERSION}/conf/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
     tmpfs:
       - /dev/shm
+    depends_on:
+      {{project_name}}-db:
+        condition: service_healthy
+      {{project_name}}-redis:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
@@ -54,7 +70,7 @@ services:
 
   {{project_name}}-redis:
     container_name: {{project_name}}-redis
-    #image: redis:7.2-alpine #for older versions
+    logging: *default-logging
     image: valkey/valkey:8.1-alpine
     restart: unless-stopped
     ports:
@@ -63,17 +79,22 @@ services:
       - {{project_name}}-network
     volumes:
         - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping 2>/dev/null || redis-cli ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   {{project_name}}-db:
     container_name: {{project_name}}-db
-    #image: mariadb:10.6 #for older versions
-    image: mariadb:11.4 #magento 2.8+
+    logging: *default-logging
+    image: mariadb:11.8
     restart: unless-stopped
     command:
       --max_allowed_packet=64M
       --optimizer_use_condition_selectivity=1
       --optimizer_switch="rowid_filter=off"
-      --innodb_buffer_pool_size=4G
+      --innodb_buffer_pool_size=${DB_BUFFER_POOL_SIZE:-4G}
       --innodb_log_buffer_size=256M
       --innodb_log_file_size=1G
       --innodb_write_io_threads=16
@@ -87,6 +108,13 @@ services:
       - "3306"
     volumes:
       - dbdata:/var/lib/mysql
+    healthcheck:
+      # ping answers as soon as the server accepts connections, no credentials needed
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 --silent || mysqladmin ping -h 127.0.0.1 --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     networks:
       - shared-db-network
       - {{project_name}}-network
