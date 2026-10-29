@@ -12,7 +12,8 @@
 # - Never touched: .env, src/, releases/, shared/, current, compose.override.yaml
 #   and any file of yours that is not part of the boilerplate.
 # - Files removed from the boilerplate are only deleted from bin/, lib/, images/
-#   and the RETIRED list below, after a separate confirmation.
+#   and the RETIRED list below, after a separate confirmation. A legacy
+#   images/nginx/.htpasswd is never deleted (bin/setup-htpasswd moves it).
 # - Put project specific compose changes in compose.override.yaml, they survive updates.
 
 set -o errexit
@@ -95,7 +96,7 @@ for dir in "${MANAGED_DIRS[@]}"; do
   [ -d "$dir" ] || continue
   while IFS= read -r file; do
     [ -e "$UPSTREAM/$file" ] || REMOVED+=("$file")
-  done < <(find "$dir" -type f | sort)
+  done < <(find "$dir" -type f ! -name .htpasswd | sort)
 done
 for file in "${RETIRED[@]}"; do
   [ -e "$file" ] && [ ! -e "$UPSTREAM/$file" ] && REMOVED+=("$file")

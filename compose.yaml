@@ -19,7 +19,8 @@ services:
       - ./:/var/www
       - ./images/nginx/default.conf:/etc/nginx/conf.d/custom.conf
       - ./images/nginx/magento.conf:/etc/nginx/magento.conf
-      #- ./images/nginx/.htpasswd:/etc/nginx/.htpasswd
+      # Basic auth on / off from .env HTPASSWD (bin/setup-htpasswd)
+      - ./images/nginx/auth-${HTPASSWD:-off}.conf:/etc/nginx/auth.conf:ro
     ports:
       - "127.0.0.1::80"
     depends_on:

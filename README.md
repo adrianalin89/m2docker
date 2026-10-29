@@ -261,28 +261,19 @@ WEB_SERVER=frankenphp
 Use a single domain to instal it and after that update the `.env` file `DOMAIN_HOSTS` add multiple domains separated by comma `,`.
 
 ### HTPASSWD project
-Run the following command to add a user to the `.htpasswd` file. Change the `admin` to the user you want to add.
+Basic auth on the storefront (staging), switched by `HTPASSWD` in `.env`:
 ```
-sh -c "echo -n 'admin:' >> images/nginx/.htpasswd"
+bin/setup-htpasswd                  # user roweb / roweb321, HTPASSWD=on, recreates nginx
+bin/setup-htpasswd <user> <pass>    # another user (replaces the file)
+bin/setup-htpasswd --off            # HTPASSWD=off (the file is kept)
 ```
-Run the following command to add a password to the `.htpasswd` file. A password will be prompted to be entered.
-```
-sh -c "openssl passwd -apr1 >> images/nginx/.htpasswd"
-```
-In images/nginx/default.conf find and update the location / to the fallowing:
-```
-location / {
-        try_files $uri $uri/ /index.php?$query_string;
-        # Uncomment to enable naxsi on this location
-        #auth_basic "Restricted Area";
-        #auth_basic_user_file /etc/nginx/.htpasswd;
-    }
-```
-Add a volume to the nginx service in the `compose.yml` file to mount the `.htpasswd` file to the container.
-```
-    volumes:
-      - ./images/nginx/.htpasswd:/etc/nginx/.htpasswd
-```
+- Users live in the project root file `.htpasswd` (outside the web root, never touched by `bin/update`);
+  nginx includes `images/nginx/auth-on.conf` or `auth-off.conf` through the compose volume
+  `auth-${HTPASSWD:-off}.conf`, so `default.conf` / `compose.yaml` need no editing.
+- `bin/health-check` accepts the anonymous 401 when `HTPASSWD=on`.
+- Older projects with `images/nginx/.htpasswd` and hand-edited `default.conf` / `compose.yaml`: run
+  `bin/update`, then `bin/setup-htpasswd` (moves the old file to the root).
+- nginx only; the FrankenPHP variant has no basic auth switch.
 
 ### add dummy data
 `` bin/magento sampledata:deploy`` to add default magento dummy data and then run `bin/magento setup:upgrade` to install it.
