@@ -1,3 +1,6 @@
+# Published ports bind to 127.0.0.1 only (random host port, see `docker port <container>`): reachable
+# from the host / an ssh tunnel for debugging, never from the internet. Traffic goes through
+# nginx-proxy and the docker networks, not through these ports.
 # Container logs (docker json-file driver) are rotated so they can't fill the disk.
 # Tune per project in .env: LOG_MAX_SIZE / LOG_MAX_FILE.
 x-logging: &default-logging
@@ -18,7 +21,7 @@ services:
       - ./images/nginx/magento.conf:/etc/nginx/magento.conf
       #- ./images/nginx/.htpasswd:/etc/nginx/.htpasswd
     ports:
-      - "80"
+      - "127.0.0.1::80"
     depends_on:
       {{project_name}}-php:
         condition: service_started
@@ -74,7 +77,7 @@ services:
     image: valkey/valkey:8.1-alpine
     restart: unless-stopped
     ports:
-      - "6379"
+      - "127.0.0.1::6379"
     networks:
       - {{project_name}}-network
     volumes:
@@ -105,7 +108,7 @@ services:
       MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
       MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
     ports:
-      - "3306"
+      - "127.0.0.1::3306"
     volumes:
       - dbdata:/var/lib/mysql
     healthcheck:
