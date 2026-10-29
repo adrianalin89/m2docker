@@ -7,6 +7,10 @@
 # Everything here runs without a TTY (bin/clinotty), so it works from CI
 # pipelines (Bitbucket ssh-run pipe, ssh without -t, cron).
 
+# The Bitbucket ssh-run pipe connects with `ssh -tt`, so there IS a terminal: git
+# (log, show, diff) would open a pager and wait forever with maintenance mode on.
+export GIT_PAGER=cat PAGER=cat
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
