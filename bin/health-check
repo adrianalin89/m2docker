@@ -6,7 +6,8 @@
 #
 # Checks: php container running, maintenance mode off, database schema/data up
 # to date (setup:db:status), storefront answers 200 through the project web
-# container, invalid indexers, cron running inside the php container.
+# container (401 accepted when the project has images/nginx/.htpasswd), invalid
+# indexers, cron running inside the php container.
 #
 # Usage: bin/health-check
 
@@ -63,6 +64,12 @@ else
   TIME=${HTTP##* }
   case "$CODE" in
     200) log_ok "Storefront https://$DOMAIN/ answers 200 (${TIME}s)" ;;
+    # Project behind basic auth (images/nginx/.htpasswd, e.g. staging): 401 to the anonymous call is expected
+    401) if [ -s images/nginx/.htpasswd ]; then
+           log_ok "Storefront https://$DOMAIN/ answers 401 behind basic auth (${TIME}s)"
+         else
+           fail "Storefront https://$DOMAIN/ answers 401"
+         fi ;;
     3??) warn "Storefront https://$DOMAIN/ answers $CODE (redirect)" ;;
     *) fail "Storefront https://$DOMAIN/ answers ${CODE:-nothing}" ;;
   esac
