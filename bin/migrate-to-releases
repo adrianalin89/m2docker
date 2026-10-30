@@ -192,6 +192,9 @@ create_main_symlinks() {
     ln -sfn current src
 
     log_info "Main symlinks created successfully"
+
+    # pub/get.php caches the media path in var/resource_config.json; the real path is now the release
+    rm -f "$SHARED_DIR/var/resource_config.json"
 }
 
 # Verify migration

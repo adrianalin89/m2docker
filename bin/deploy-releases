@@ -134,6 +134,11 @@ switch_release() {
         ln -sfn current src
     fi
 
+    # pub/get.php (media files nginx can't serve) caches the media path in var/resource_config.json.
+    # PHP sees the release's real path, which changed, so drop the cache or media answers 404 until
+    # it expires; Magento writes it again on the next media request.
+    rm -f "$SHARED_DIR/var/resource_config.json"
+
     log_info "Release switched successfully!"
 }
 
