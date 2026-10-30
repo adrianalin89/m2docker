@@ -208,6 +208,34 @@ reload_phpfpm() {
     reload_php || log_warn "Could not reload PHP (not critical)"
 }
 
+# The web server container bind-mounts files from the release (ex. a project nginx config in
+# src/nginx_conf via compose.override.yaml). Docker resolves src -> current -> releases/<x> only when
+# the container starts, so after a switch it keeps the previous release's files. Restart it only when
+# one of those files changed, so ordinary deploys stay zero downtime.
+restart_web_if_config_changed() {
+    local web_container="${PROJECT_NAME}-nginx"
+    docker ps --format '{{.Names}}' | grep -q "^${web_container}$" || return 0
+    [ -n "$CURRENT_RELEASE" ] || return 0
+
+    local changed="" source relative
+    while read -r source; do
+        case "$source" in
+            "$SRC_LINK"/*) relative="${source#"$SRC_LINK"/}" ;;
+            "$CURRENT_LINK"/*) relative="${source#"$CURRENT_LINK"/}" ;;
+            *) continue ;;
+        esac
+        if ! cmp -s "$CURRENT_RELEASE/$relative" "$NEW_RELEASE/$relative"; then
+            changed="$changed $relative"
+        fi
+    done < <(docker inspect -f '{{range .Mounts}}{{if eq .Type "bind"}}{{println .Source}}{{end}}{{end}}' "$web_container")
+
+    if [ -n "$changed" ]; then
+        log_info "Web server config changed in this release:$changed"
+        log_info "Restarting $web_container to load it..."
+        docker restart "$web_container" >/dev/null
+    fi
+}
+
 # Main deployment flow
 main() {
     log_info "=== Starting deployment ==="
@@ -234,6 +262,9 @@ main() {
 
     # Switch to new release (atomic, zero-downtime!)
     switch_release
+
+    # Pick up a changed web server config (only then, a few seconds)
+    restart_web_if_config_changed
 
     # Reload PHP-FPM
     reload_phpfpm

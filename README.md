@@ -169,7 +169,7 @@ At this point you should have a working Magento 2 project running on your server
 - `bin/update`: Update the boilerplate files of this project from `adrianalin89/m2docker` master, with `--dry-run` / `--diff` and confirmation. See "Updating the boilerplate".
 - `bin/xdebug`: Disable or enable Xdebug. Accepts argument `disable`, `enable`, or `status`. Ex. `bin/xdebug enable`
 - `bin/migrate-to-releases`: Migrate folder structure for 0DownTime Deploy.
-- `bin/deploy-releases`: Zero downtime deployment of `DEPLOY_BRANCH` into a new `releases/` folder, switched atomically when ready (keeps `DEPLOY_KEEP_RELEASES`).
+- `bin/deploy-releases`: Zero downtime deployment of `DEPLOY_BRANCH` into a new `releases/` folder, switched atomically when ready (keeps `DEPLOY_KEEP_RELEASES`). If the new release changes a file that the nginx container mounts from the project (ex. a project nginx config in `src/` through `compose.override.yaml`), nginx is restarted after the switch, the only moment with a few seconds of downtime; otherwise it keeps serving without a restart.
 - `bin/rollback`: Roll back to a previous release.
 
 > [!IMPORTANT]
