@@ -164,11 +164,16 @@ rollback_to_release() {
 
     # Reload PHP-FPM
     log_info "Reloading PHP-FPM..."
-    docker exec "$CONTAINER_NAME" bash -c "kill -USR2 1" 2>/dev/null || log_warn "Could not reload PHP-FPM (not critical)"
+    # PID 1 is supervisord, signal the php-fpm master itself
+    docker exec "$CONTAINER_NAME" bash -c 'kill -USR2 $(pgrep -o php-fpm)' 2>/dev/null || log_warn "Could not reload PHP-FPM (not critical)"
+
+    # pub/get.php caches the media path (the release's real path) in var/resource_config.json
+    rm -f "$PROJECT_ROOT/shared/var/resource_config.json"
 
     # Flush cache
     log_info "Flushing Magento cache..."
-    docker exec -u www-data "$CONTAINER_NAME" bash -c "cd /var/www/src && bin/magento cache:flush"
+    # The container's own user (USER_ID from .env), like every other bin/ command
+    docker exec "$CONTAINER_NAME" bash -c "cd /var/www/src && bin/magento cache:flush"
 
     log_info "Rollback completed successfully!"
 }
