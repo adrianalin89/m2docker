@@ -103,7 +103,9 @@ services:
       --innodb_log_file_size=1G
       --innodb_write_io_threads=16
     environment:
-      MYSQL_HOST: "${MYSQL_HOST}"
+      # No MYSQL_HOST here: the entrypoint's mariadb-upgrade reads it and misses the socket-only
+      # temporary server. Upgrades the data directory when the image version changes (ex. 11.4 -> 11.8).
+      MARIADB_AUTO_UPGRADE: "1"
       MYSQL_DATABASE: "${MYSQL_DATABASE}"
       MYSQL_USER: "${MYSQL_USER}"
       MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
