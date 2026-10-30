@@ -6,7 +6,7 @@
 #   bin/deploy --no-git                skip fetching/pulling DEPLOY_BRANCH
 #
 # Steps: maintenance on -> git pull DEPLOY_BRANCH -> composer install -> clean
-# generated -> di:compile -> Tailwind build-prod -> setup:upgrade -> static
+# generated + pub/static -> di:compile -> Tailwind build-prod -> setup:upgrade -> static
 # content deploy -> maintenance off -> cache flush.
 #
 # If a step fails the deploy stops and maintenance mode is left ON, so a half
@@ -91,6 +91,9 @@ fi
 step "Show deploy mode" magento deploy:mode:show || on_error
 step "Composer install ${DEPLOY_COMPOSER_ARGS}" in_container src "composer install --no-interaction ${DEPLOY_COMPOSER_ARGS}" || on_error
 step "Clean generated files" in_container src "rm -rf generated/code generated/metadata var/view_preprocessed var/cache var/page_cache" || on_error
+# setup:static-content:deploy never overwrites a file that already exists in pub/static, so a
+# rebuilt Tailwind styles.css (or any changed asset) would never reach the site: start empty.
+step "Clean static files" in_container src "find pub/static -mindepth 1 -maxdepth 1 ! -name .htaccess -exec rm -rf {} +" || on_error
 step "Flush cache" magento cache:flush || on_error
 step "Compile dependency injection" magento setup:di:compile || on_error
 step "Build Tailwind (Hyvä) themes" tailwind || on_error
