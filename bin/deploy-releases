@@ -160,9 +160,14 @@ deploy_magento() {
         build_tailwind "releases/$(basename "$NEW_RELEASE")"
     fi
 
-    # Setup upgrade (keep the code compiled above)
-    log_info "Running setup:upgrade..."
-    run_in_container "bin/magento setup:upgrade --keep-generated"
+    # Setup upgrade (keep the code compiled above). The live release shares the Redis cache and keeps
+    # writing its own config into it while the upgrade runs, so the upgrade would read stale config
+    # (ex. "Topic ... is not configured" for a new message queue topic). Give it a cache of its own.
+    log_info "Running setup:upgrade (isolated cache prefix)..."
+    local release_name
+    release_name=$(basename "$NEW_RELEASE")
+    docker exec -u www-data -e MAGENTO_DC__OVERRIDE="$(isolated_cache_override "$release_name")" \
+        "$CONTAINER_NAME" bash -c "cd /var/www/releases/$release_name && bin/magento setup:upgrade --keep-generated"
 
     # Deploy static content
     log_info "Deploying static content ($DEPLOY_LOCALES)..."
@@ -206,6 +211,28 @@ cleanup_releases() {
 reload_phpfpm() {
     log_info "Reloading PHP..."
     reload_php || log_warn "Could not reload PHP (not critical)"
+}
+
+# MAGENTO_DC__OVERRIDE JSON: the env.php cache section with a release specific id_prefix, so a command
+# run with it does not share cache entries with the live release.
+isolated_cache_override() {
+    local release_name="$1"
+    docker exec -u www-data "$CONTAINER_NAME" php -r '
+        $env = include "/var/www/releases/'"$release_name"'/app/etc/env.php";
+        $cache = $env["cache"] ?? [];
+        foreach ($cache["frontend"] ?? [] as $id => $frontend) {
+            $cache["frontend"][$id]["id_prefix"] = ($frontend["id_prefix"] ?? "")
+                . preg_replace("/[^a-zA-Z0-9]/", "_", "'"$release_name"'") . "_";
+        }
+        echo json_encode(["cache" => $cache]);'
+}
+
+# Until the switch the previous release keeps filling the cache with its own config, so flush once
+# more when the new release serves the requests.
+flush_cache_after_switch() {
+    log_info "Flushing cache (new release live)..."
+    docker exec -u www-data "$CONTAINER_NAME" bash -c "cd /var/www/releases/$(basename "$NEW_RELEASE") && bin/magento cache:flush" \
+        || log_warn "Could not flush the cache after the switch"
 }
 
 # The web server container bind-mounts files from the release (ex. a project nginx config in
@@ -268,6 +295,9 @@ main() {
 
     # Reload PHP-FPM
     reload_phpfpm
+
+    # Drop what the previous release cached during the deploy
+    flush_cache_after_switch
 
     # Cleanup old releases
     cleanup_releases
