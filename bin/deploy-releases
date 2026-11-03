@@ -32,8 +32,12 @@ run_in_container() {
     # Get release name (relative path)
     RELEASE_NAME=$(basename "$NEW_RELEASE")
 
+    # With its own cache prefix once deploy_magento set it, see there
+    local env_args=()
+    [ -n "$CACHE_OVERRIDE" ] && env_args=(-e "MAGENTO_DC__OVERRIDE=$CACHE_OVERRIDE")
+
     # Run in NEW release (NOT in src!)
-    docker exec -u www-data "$CONTAINER_NAME" bash -c "cd /var/www/releases/$RELEASE_NAME && $cmd"
+    docker exec -u www-data "${env_args[@]}" "$CONTAINER_NAME" bash -c "cd /var/www/releases/$RELEASE_NAME && $cmd"
 }
 
 # Create directory structure
@@ -146,6 +150,14 @@ switch_release() {
 deploy_magento() {
     log_info "Running Magento deployment commands..."
 
+    # The live release shares the Redis cache and keeps writing its own config into it, so the new
+    # code would boot with stale config: "Topic ... is not configured" for a new message queue topic,
+    # or no bin/magento at all for a new <preference> (stale DI config). Flushing does not help, the
+    # live release fills the cache again, so every command of the new release before the switch uses
+    # a cache prefix of its own.
+    CACHE_OVERRIDE="$(isolated_cache_override "$(basename "$NEW_RELEASE")")"
+    log_info "Using an isolated cache prefix for the new release"
+
     # Composer install
     log_info "Installing Composer dependencies..."
     run_in_container "composer install --no-interaction $COMPOSER_ARGS"
@@ -160,14 +172,9 @@ deploy_magento() {
         build_tailwind "releases/$(basename "$NEW_RELEASE")"
     fi
 
-    # Setup upgrade (keep the code compiled above). The live release shares the Redis cache and keeps
-    # writing its own config into it while the upgrade runs, so the upgrade would read stale config
-    # (ex. "Topic ... is not configured" for a new message queue topic). Give it a cache of its own.
-    log_info "Running setup:upgrade (isolated cache prefix)..."
-    local release_name
-    release_name=$(basename "$NEW_RELEASE")
-    docker exec -u www-data -e MAGENTO_DC__OVERRIDE="$(isolated_cache_override "$release_name")" \
-        "$CONTAINER_NAME" bash -c "cd /var/www/releases/$release_name && bin/magento setup:upgrade --keep-generated"
+    # Setup upgrade (keep the code compiled above)
+    log_info "Running setup:upgrade..."
+    run_in_container "bin/magento setup:upgrade --keep-generated"
 
     # Deploy static content
     log_info "Deploying static content ($DEPLOY_LOCALES)..."

@@ -6,8 +6,8 @@
 #   bin/deploy --no-git                skip fetching/pulling DEPLOY_BRANCH
 #
 # Steps: maintenance on -> git pull DEPLOY_BRANCH -> composer install -> clean
-# generated + pub/static -> di:compile -> Tailwind build-prod -> setup:upgrade -> static
-# content deploy -> maintenance off -> cache flush.
+# generated + pub/static -> flush the Redis cache directly -> show deploy mode -> di:compile ->
+# Tailwind build-prod -> setup:upgrade -> static content deploy -> maintenance off -> cache flush.
 #
 # If a step fails the deploy stops and maintenance mode is left ON, so a half
 # deployed shop is never served. Fix the issue and run bin/deploy again, or
@@ -88,13 +88,16 @@ step "Enable maintenance mode" maintenance_on || on_error
 if [ "$USE_GIT" = "1" ]; then
   step "Update code from git ($DEPLOY_BRANCH)" git_update || on_error
 fi
-step "Show deploy mode" magento deploy:mode:show || on_error
+# No bin/magento between the git update and the cache flush below: until then the code, vendor/,
+# generated/ and the cache do not match (ex. a module moved from app/code to vendor/, a new
+# <preference>), so bin/magento may not even boot.
 step "Composer install ${DEPLOY_COMPOSER_ARGS}" in_container src "composer install --no-interaction ${DEPLOY_COMPOSER_ARGS}" || on_error
 step "Clean generated files" in_container src "rm -rf generated/code generated/metadata var/view_preprocessed var/cache var/page_cache" || on_error
 # setup:static-content:deploy never overwrites a file that already exists in pub/static, so a
 # rebuilt Tailwind styles.css (or any changed asset) would never reach the site: start empty.
 step "Clean static files" in_container src "find pub/static -mindepth 1 -maxdepth 1 ! -name .htaccess -exec rm -rf {} +" || on_error
-step "Flush cache" magento cache:flush || on_error
+step "Flush Redis cache (without bin/magento)" flush_redis_cache src || on_error
+step "Show deploy mode" magento deploy:mode:show || on_error
 step "Compile dependency injection" magento setup:di:compile || on_error
 step "Build Tailwind (Hyvä) themes" tailwind || on_error
 step "Database upgrade" magento setup:upgrade --keep-generated || on_error

@@ -107,6 +107,71 @@ build_tailwind() {
   done <<< "$themes"
 }
 
+# Empty the Redis cache databases of <dir>/app/etc/env.php (dir relative to /var/www) without
+# bin/magento. After a code update the cache can still hold the DI config of the previous code, and
+# then bin/magento itself cannot boot (ex. a new <preference> -> "Cannot instantiate interface"), so
+# not even cache:flush works. FLUSHDB on each cache database is what cache:flush does on Redis.
+flush_redis_cache() {
+  docker exec -i -u www-data -w "/var/www/$1" "$PHP_CONTAINER" php <<'PHP'
+<?php
+$env = include 'app/etc/env.php';
+$send = function ($socket, array $args) {
+    $request = '*' . count($args) . "\r\n";
+    foreach ($args as $arg) {
+        $request .= '$' . strlen((string) $arg) . "\r\n" . $arg . "\r\n";
+    }
+    fwrite($socket, $request);
+    $reply = fgets($socket);
+    if ($reply === false || $reply[0] === '-') {
+        throw new RuntimeException(trim($reply === false ? 'no reply' : substr($reply, 1)));
+    }
+};
+$flushed = [];
+foreach ($env['cache']['frontend'] ?? [] as $name => $frontend) {
+    $backend = $frontend['backend'] ?? 'file';
+    $options = $frontend['backend_options'] ?? [];
+    if (stripos($backend, 'RemoteSynchronizedCache') !== false) {
+        $backend = $options['remote_backend'] ?? '';
+        $options = $options['remote_backend_options'] ?? [];
+    }
+    if (!preg_match('/redis|valkey/i', $backend)) {
+        echo "$name: $backend backend, not Redis, skipped\n";
+        continue;
+    }
+    $server = $options['server'] ?? '127.0.0.1';
+    $port = (int) ($options['port'] ?? 6379);
+    $database = (int) ($options['database'] ?? 0);
+    $address = strpos($server, '/') === 0 ? "unix://$server"
+        : (strpos($server, '://') !== false ? "$server:$port" : "tcp://$server:$port");
+    if (isset($flushed["$address/$database"])) {
+        continue;
+    }
+    try {
+        $socket = stream_socket_client($address, $errno, $error, 5);
+        if (!$socket) {
+            throw new RuntimeException($error);
+        }
+        stream_set_timeout($socket, 60);
+        if (!empty($options['password'])) {
+            $send($socket, empty($options['username'])
+                ? ['AUTH', $options['password']] : ['AUTH', $options['username'], $options['password']]);
+        }
+        $send($socket, ['SELECT', $database]);
+        $send($socket, ['FLUSHDB']);
+        fclose($socket);
+    } catch (Throwable $e) {
+        fwrite(STDERR, "$name: could not flush $address db $database: {$e->getMessage()}\n");
+        exit(1);
+    }
+    $flushed["$address/$database"] = true;
+    echo "$name: flushed $address db $database\n";
+}
+if (!$flushed) {
+    echo "No Redis cache in app/etc/env.php\n";
+}
+PHP
+}
+
 # Make PHP pick up new code after a release switch (realpath + OPcache).
 reload_php() {
   if docker exec "$PHP_CONTAINER" pgrep -o php-fpm >/dev/null 2>&1; then
