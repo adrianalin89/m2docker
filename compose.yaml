@@ -2,12 +2,13 @@
 # from the host / an ssh tunnel for debugging, never from the internet. Traffic goes through
 # nginx-proxy and the docker networks, not through these ports.
 # Container logs (docker json-file driver) are rotated so they can't fill the disk.
-# Tune per project in .env: LOG_MAX_SIZE / LOG_MAX_FILE.
+# Tune per project in .env: LOG_MAX_SIZE / LOG_MAX_FILE. Rotated files are gzip compressed.
 x-logging: &default-logging
   driver: json-file
   options:
     max-size: "${LOG_MAX_SIZE:-10m}"
     max-file: "${LOG_MAX_FILE:-3}"
+    compress: "true"
 
 services:
   {{project_name}}-nginx:

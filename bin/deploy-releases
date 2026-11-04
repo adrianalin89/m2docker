@@ -162,6 +162,9 @@ deploy_magento() {
     log_info "Installing Composer dependencies..."
     run_in_container "composer install --no-interaction $COMPOSER_ARGS"
 
+    # Before setup:upgrade: the live release must keep running on the upgraded database
+    ensure_blue_green
+
     # DI compile
     log_info "Running setup:di:compile..."
     run_in_container "bin/magento setup:di:compile"
@@ -218,6 +221,30 @@ cleanup_releases() {
 reload_phpfpm() {
     log_info "Reloading PHP..."
     reload_php || log_warn "Could not reload PHP (not critical)"
+}
+
+# deployment/blue_green/enabled in the shared env.php. setup:upgrade runs while the previous release
+# is live, and after bin/rollback the previous code runs on the upgraded database. Without the flag a
+# module whose setup_version differs from the database stops every request of that code with "Please
+# upgrade your database" / "Please update your modules" (Magento DbStatusValidator). Written once with
+# Magento's own formatter, kept by later deploys.
+ensure_blue_green() {
+    docker exec -u www-data -w "/var/www/releases/$(basename "$NEW_RELEASE")" "$CONTAINER_NAME" php -r '
+        require "vendor/autoload.php";
+        $file = realpath("app/etc/env.php");
+        $env = include $file;
+        if (!empty($env["deployment"]["blue_green"]["enabled"])) {
+            exit(0);
+        }
+        $env["deployment"]["blue_green"]["enabled"] = true;
+        $formatter = new Magento\Framework\App\DeploymentConfig\Writer\PhpFormatter();
+        $tmp = $file . ".tmp";
+        if (file_put_contents($tmp, $formatter->format($env)) === false
+            || !chmod($tmp, fileperms($file) & 0777) || !rename($tmp, $file)) {
+            fwrite(STDERR, "Could not write $file\n");
+            exit(1);
+        }
+        echo "Enabled deployment/blue_green in env.php\n";'
 }
 
 # MAGENTO_DC__OVERRIDE JSON: the env.php cache section with a release specific id_prefix, so a command
