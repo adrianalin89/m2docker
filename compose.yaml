@@ -95,6 +95,8 @@ services:
     logging: *default-logging
     image: mariadb:11.8
     restart: unless-stopped
+    # innodb_snapshot_isolation is ON by default since MariaDB 11.6.2: concurrent cart updates on the same quote
+    # then fail with "1020 Record has changed since last read in table 'quote_address'". Magento needs it OFF.
     command:
       --max_allowed_packet=64M
       --optimizer_use_condition_selectivity=1
@@ -103,6 +105,7 @@ services:
       --innodb_log_buffer_size=256M
       --innodb_log_file_size=1G
       --innodb_write_io_threads=16
+      --innodb_snapshot_isolation=OFF
     environment:
       # No MYSQL_HOST here: the entrypoint's mariadb-upgrade reads it and misses the socket-only
       # temporary server. Upgrades the data directory when the image version changes (ex. 11.4 -> 11.8).
