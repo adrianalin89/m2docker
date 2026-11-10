@@ -90,7 +90,8 @@ tailwind_themes() {
     } | sed "s|/package.json$||" | sort -u'
 }
 
-# npm ci (or install when there is no lock file) + build-prod for every Hyvä theme.
+# npm ci (or install when there is no lock file) + build for every Hyvä theme: the "build-prod"
+# script (Hyvä 1.3 / Tailwind 3 themes), else "build" (Hyvä 1.4+ / Tailwind 4 themes and modules).
 build_tailwind() {
   local root="$1"
   local themes
@@ -103,7 +104,8 @@ build_tailwind() {
   while IFS= read -r theme; do
     [ -z "$theme" ] && continue
     log_info "Tailwind: $theme"
-    in_container "$root" "if [ -f '$theme/package-lock.json' ]; then npm --prefix '$theme' ci; else npm --prefix '$theme' install; fi && npm --prefix '$theme' run build-prod" || return 1
+    in_container "$root" "if [ -f '$theme/package-lock.json' ]; then npm --prefix '$theme' ci; else npm --prefix '$theme' install; fi &&
+      if grep -q '\"build-prod\"' '$theme/package.json'; then npm --prefix '$theme' run build-prod; else npm --prefix '$theme' run build; fi" || return 1
   done <<< "$themes"
 }
 
