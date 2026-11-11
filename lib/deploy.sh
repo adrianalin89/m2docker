@@ -75,11 +75,14 @@ check_php_container() {
   fi
 }
 
-# Run a command inside the php container, in the given directory (relative to /var/www).
+# Run a command inside the php container, in the given directory (relative to /var/www). With the
+# cache prefix of the new release when bin/deploy-releases set one (CACHE_OVERRIDE, see there).
 in_container() {
   local dir="$1"
   shift
-  docker exec -u www-data -w "/var/www/$dir" "$PHP_CONTAINER" bash -c "$*"
+  local env_args=()
+  [ -n "$CACHE_OVERRIDE" ] && env_args=(-e "MAGENTO_DC__OVERRIDE=$CACHE_OVERRIDE")
+  docker exec -u www-data "${env_args[@]}" -w "/var/www/$dir" "$PHP_CONTAINER" bash -c "$*"
 }
 
 # Tailwind theme folders (Hyvä) inside a Magento root, relative to it.
@@ -90,8 +93,25 @@ tailwind_themes() {
     } | sed "s|/package.json$||" | sort -u'
 }
 
-# npm ci (or install when there is no lock file) + build for every Hyvä theme: the "build-prod"
-# script (Hyvä 1.3 / Tailwind 3 themes), else "build" (Hyvä 1.4+ / Tailwind 4 themes and modules).
+# The Tailwind build (npx hyva-sources) reads app/etc/hyva-themes.json, the modules whose CSS goes
+# into the theme. The file is not in git and Hyvä writes it only on module:enable / module:disable
+# and setup:upgrade, which runs after the build (and a new release starts without the file), so a
+# module that came with git + composer install would be missing from styles.css: write it first.
+# Needs the compiled DI, so after setup:di:compile. No such command (Hyvä < 1.1.14) is not an error.
+hyva_config_generate() {
+  local root="$1"
+  local commands
+  commands="$(in_container "$root" "bin/magento list --raw --no-ansi")" || return 1
+  if ! grep -qE '^hyva:config:generate([[:space:]]|$)' <<< "$commands"; then
+    log_info "No hyva:config:generate command, app/etc/hyva-themes.json left as is."
+    return 0
+  fi
+  in_container "$root" "bin/magento hyva:config:generate"
+}
+
+# hyva:config:generate, then npm ci (or install when there is no lock file) + build for every Hyvä
+# theme: the "build-prod" script (Hyvä 1.3 / Tailwind 3 themes), else "build" (Hyvä 1.4+ / Tailwind 4
+# themes and modules).
 build_tailwind() {
   local root="$1"
   local themes
@@ -100,6 +120,7 @@ build_tailwind() {
     log_info "No Hyvä Tailwind themes found, skipping."
     return 0
   fi
+  hyva_config_generate "$root" || return 1
   local theme
   while IFS= read -r theme; do
     [ -z "$theme" ] && continue

@@ -123,7 +123,7 @@ At this point you should have a working Magento 2 project running on your server
 - `bin/create-user`: Create either an admin user or customer account.
 - `bin/cron`: Start or stop the cron service. Ex. `bin/cron start`
 - `bin/debug-cli`: Enable Xdebug for bin/magento, with an optional argument of the IDE key. Defaults to PHPSTORM Ex. `bin/debug-cli enable PHPSTORM`
-- `bin/deploy`: In place deployment of `src/` configured by the `DEPLOY_*` variables in `.env` (git pull of `DEPLOY_BRANCH`, maintenance, composer, di:compile, Tailwind, setup:upgrade, static content). Extra locales can be passed as arguments, `--no-git` skips the pull. Ex. `bin/deploy ro_RO`
+- `bin/deploy`: In place deployment of `src/` configured by the `DEPLOY_*` variables in `.env` (git pull of `DEPLOY_BRANCH`, maintenance, composer, di:compile, `hyva:config:generate` + Tailwind, setup:upgrade, static content). Extra locales can be passed as arguments, `--no-git` skips the pull. Ex. `bin/deploy ro_RO`
 - `bin/health-check`: Read only post deploy check: maintenance off, `setup:db:status`, storefront answers 200, invalid indexers, cron running. Exit code 1 on errors.
 - `bin/pipeline`: Entry point for CI deployments, runs `bin/deploy` or `bin/deploy-releases` depending on `DEPLOY_TYPE`, then `bin/health-check`. Ex. `bin/pipeline`, `bin/pipeline --dry-run`, `bin/pipeline hotfix-branch`
 - `bin/dev-test-run`: Facilitates running PHPUnit tests for a specified test type (e.g., integration). It expects the test type as the first argument and passes any additional arguments to PHPUnit, allowing for customization of test runs. If no test type is provided, it prompts the user to specify one before exiting.
@@ -220,7 +220,7 @@ DEPLOY_BRANCH=stage         # branch deployed on this server
 DEPLOY_LOCALES="en_US ro_RO"
 DEPLOY_MAINTENANCE=1
 DEPLOY_COMPOSER_ARGS=       # ex. --no-dev --optimize-autoloader
-DEPLOY_TAILWIND=1           # npm ci + build-prod for every Hyvä theme
+DEPLOY_TAILWIND=1           # hyva:config:generate, then npm ci + build for every Hyvä theme
 DEPLOY_KEEP_RELEASES=3
 ```
 The pipeline in the project repository (`src/bitbucket-pipelines.yml`, start from `bitbucket-pipelines.yml.sample`: `stage` deploys automatically, `master` waits for a manual Run, plus custom pipelines to redeploy) only runs `bin/pipeline` on the server; its output (each numbered step with its duration) is shown in Bitbucket and a failed step fails the pipeline:
@@ -241,6 +241,7 @@ pipelines:
 ```
 - The scripts don't need a TTY, so they work with the `ssh-run` pipe and with `ssh` without `-tt`.
 - `bin/deploy` refuses to pull when `src/` has uncommitted changes (checked before maintenance mode). If a later step fails, maintenance mode stays on so a half deployed shop is never served.
+- With `DEPLOY_TAILWIND=1` both deploy types run `bin/magento hyva:config:generate` before the Tailwind build of the Hyvä themes: `app/etc/hyva-themes.json` (the modules whose CSS goes into the theme) is not in git and Hyvä writes it only on `module:enable` / `module:disable` and `setup:upgrade`, so without it a Hyvä compatibility module that arrived with git + `composer install` would be missing from the built CSS. Skipped when the project has no Hyvä theme or no such command.
 - Run `bin/pipeline --dry-run` on the server to check the settings without deploying.
 
 ### FrankenPHP (optional web server)

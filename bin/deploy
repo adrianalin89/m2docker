@@ -7,7 +7,7 @@
 #
 # Steps: maintenance on -> git pull DEPLOY_BRANCH -> composer install -> clean
 # generated + pub/static -> flush the Redis cache directly -> show deploy mode -> di:compile ->
-# Tailwind build-prod -> setup:upgrade -> static content deploy -> maintenance off -> cache flush.
+# hyva:config:generate + Tailwind build -> setup:upgrade -> static content deploy -> maintenance off -> cache flush.
 #
 # If a step fails the deploy stops and maintenance mode is left ON, so a half
 # deployed shop is never served. Fix the issue and run bin/deploy again, or
