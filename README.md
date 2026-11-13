@@ -271,6 +271,11 @@ bin/setup-htpasswd --off            # HTPASSWD=off (the file is kept)
 - Users live in the project root file `.htpasswd` (outside the web root, never touched by `bin/update`);
   nginx includes `images/nginx/auth-on.conf` or `auth-off.conf` through the compose volume
   `auth-${HTPASSWD:-off}.conf`, so `default.conf` / `compose.yaml` need no editing.
+- The include sits at `server` level, so every location (`\.php$`, `/static/`, `/media/` ...) inherits it.
+  Inside `location /` only, `/index.php`, `/health_check.php` and the static / media files were served
+  without auth. Public paths in a custom config (e.g. `/rest/` with `auth_basic off;`) must pass to PHP
+  directly (`fastcgi_pass` + `SCRIPT_FILENAME $realpath_root/index.php`): a `try_files ... /index.php`
+  fallback is an internal redirect into `location ~ \.php$`, which asks for the password again.
 - `bin/health-check` accepts the anonymous 401 when `HTPASSWD=on`.
 - Older projects with `images/nginx/.htpasswd` and hand-edited `default.conf` / `compose.yaml`: run
   `bin/update`, then `bin/setup-htpasswd` (moves the old file to the root).
