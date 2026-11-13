@@ -47,10 +47,10 @@
 		not path /.well-known/*
 	}
 
-	# Only Magento's entry points may be executed
+	# Only Magento's entry points may be executed (same list as images/nginx/default.conf)
 	@phpDenied {
 		path *.php
-		not path /index.php /get.php /static.php /health_check.php /errors/*.php
+		not path /index.php /get.php /static.php /health_check.php /errors/404.php /errors/503.php /errors/report.php
 	}
 
 	@staticVersion path_regexp staticVersion ^/static/version\d+/(.*)$

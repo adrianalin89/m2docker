@@ -252,7 +252,7 @@ WEB_SERVER=frankenphp
 ```
 - `bin/docker-compose` then also loads `compose.frankenphp.yaml`: the `{{project_name}}-nginx` container is disabled and `{{project_name}}-php` is built from `images/frankenphp/8.5` and routed by nginx-proxy on port `8080`. `PHP_VERSION` is ignored in this mode.
 - The container keeps the `{{project_name}}-php` name, so all `bin/*` commands work the same.
-- Web server rules live in `images/frankenphp/8.5/conf/Caddyfile` (mounted, `bin/restart` after editing). Only Magento's entry points (`index.php`, `get.php`, `static.php`, `health_check.php`, `errors/*.php`) can be executed.
+- Web server rules live in `images/frankenphp/8.5/conf/Caddyfile` (mounted, `bin/restart` after editing). Only Magento's entry points (`index.php`, `get.php`, `static.php`, `health_check.php`, `errors/404.php`, `errors/503.php`, `errors/report.php`) can be executed, same list as nginx (`images/nginx/default.conf`, Magento's `nginx.conf.sample`); any other `.php` (`cron.php`, uploads ...) gets 403.
 - When switching an existing project run `bin/stop` first, otherwise the old nginx container keeps running and nginx-proxy routes to both.
 - Worker mode is not enabled: Magento keeps state between requests and leaks it in worker mode.
 
