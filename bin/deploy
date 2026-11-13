@@ -5,9 +5,9 @@
 #   bin/deploy [extra locales...]      ex. bin/deploy ro_RO
 #   bin/deploy --no-git                skip fetching/pulling DEPLOY_BRANCH
 #
-# Steps: maintenance on -> git pull DEPLOY_BRANCH -> composer install -> clean
+# Steps: maintenance on -> pause cron -> git pull DEPLOY_BRANCH -> composer install -> clean
 # generated + pub/static -> flush the Redis cache directly -> show deploy mode -> di:compile ->
-# hyva:config:generate + Tailwind build -> setup:upgrade -> static content deploy -> maintenance off -> cache flush.
+# hyva:config:generate + Tailwind build -> setup:upgrade -> static content deploy -> maintenance off -> cache flush -> resume cron.
 #
 # If a step fails the deploy stops and maintenance mode is left ON, so a half
 # deployed shop is never served. Fix the issue and run bin/deploy again, or
@@ -69,6 +69,7 @@ on_error() {
   echo ""
   log_error "Deployment FAILED at step $STEP_NO."
   [ "$DEPLOY_MAINTENANCE" = "1" ] && log_warn "Maintenance mode is still ON (bin/magento maintenance:disable to go back online)."
+  cron_start
   exit 1
 }
 
@@ -85,6 +86,7 @@ if [ "$USE_GIT" = "1" ]; then
   step "Check src/ git working tree" git_preflight || exit 1
 fi
 step "Enable maintenance mode" maintenance_on || on_error
+step "Pause cron" cron_stop || on_error
 if [ "$USE_GIT" = "1" ]; then
   step "Update code from git ($DEPLOY_BRANCH)" git_update || on_error
 fi
@@ -104,6 +106,7 @@ step "Database upgrade" magento setup:upgrade --keep-generated || on_error
 step "Deploy static content (${LOCALES})" magento setup:static-content:deploy -f $LOCALES || on_error
 step "Disable maintenance mode" maintenance_off || on_error
 step "Flush cache" magento cache:flush || on_error
+step "Resume cron" cron_start || on_error
 
 echo ""
 echo -e "${GREEN}🎉 Deployment of ${PROJECT_NAME} completed in $((SECONDS - STARTED))s${NC}"

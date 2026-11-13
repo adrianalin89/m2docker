@@ -85,6 +85,36 @@ in_container() {
   docker exec -u www-data "${env_args[@]}" -w "/var/www/$dir" "$PHP_CONTAINER" bash -c "$*"
 }
 
+# Pause / resume the cron program of the php container (supervisord). While generated/ is
+# cleaned and setup:di:compile runs, a cron:run started by the minute tick writes into
+# generated/code and di:compile fails with "cannot be deleted ... Directory not empty".
+# The images' [supervisorctl] serverurl points to /dev/shm, the socket is in /tmp.
+cron_ctl() {
+  docker exec "$PHP_CONTAINER" supervisorctl -s unix:///tmp/supervisor.sock -u dummy -p dummy "$1" cron
+}
+
+cron_stop() {
+  if ! cron_ctl stop >/dev/null 2>&1; then
+    log_warn "Could not stop cron in ${PHP_CONTAINER}, continuing."
+    return 0
+  fi
+  CRON_PAUSED=1
+  # wait for a cron:run that is already running (max 2 min)
+  local i
+  for i in $(seq 1 60); do
+    docker exec "$PHP_CONTAINER" pgrep -f 'bin/magento cron:run' >/dev/null 2>&1 || return 0
+    sleep 2
+  done
+  log_warn "A cron:run is still running in ${PHP_CONTAINER}."
+}
+
+cron_start() {
+  [ "${CRON_PAUSED:-0}" = "1" ] || return 0
+  CRON_PAUSED=0
+  cron_ctl start >/dev/null 2>&1 || log_warn "Could not start cron in ${PHP_CONTAINER} (check: supervisorctl status)."
+  return 0
+}
+
 # Tailwind theme folders (Hyvä) inside a Magento root, relative to it.
 tailwind_themes() {
   in_container "$1" '{
